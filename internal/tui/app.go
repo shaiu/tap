@@ -62,6 +62,9 @@ type AppModel struct {
 	prevState  ViewState // State before filter/help
 	categories []core.Category
 
+	// Menu
+	menu MenuModel
+
 	// Selection
 	selectedCatIdx int
 	selectedScript *core.Script
@@ -84,10 +87,16 @@ func NewAppModel(categories []core.Category) AppModel {
 		state = StateLoading
 	}
 
+	// Default dimensions (will be updated on WindowSizeMsg)
+	width, height := 80, 24
+
 	return AppModel{
 		state:          state,
 		categories:     categories,
+		menu:           NewMenuModel(categories, width, height),
 		selectedCatIdx: -1,
+		width:          width,
+		height:         height,
 		keys:           DefaultKeyMap(),
 	}
 }
@@ -103,14 +112,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.menu.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case ScriptsLoadedMsg:
 		m.categories = msg.Categories
+		m.menu.SetCategories(msg.Categories)
 		if len(m.categories) > 0 {
 			m.state = StateCategoryList
 		}
 		return m, nil
+
+	case ScriptSelectedMsg:
+		m.selectedScript = &msg.Script
+		return m, tea.Quit
 
 	case ErrorMsg:
 		m.err = msg.Err
@@ -157,9 +172,6 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // updateCategoryList handles input in the category list state.
 func (m AppModel) updateCategoryList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.Select):
-		// Will be handled by MenuModel in next task
-		return m, nil
 	case key.Matches(msg, m.keys.Filter):
 		m.prevState = m.state
 		m.state = StateFilter
@@ -167,19 +179,23 @@ func (m AppModel) updateCategoryList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Refresh):
 		return m, func() tea.Msg { return RefreshMsg{} }
 	}
-	return m, nil
+
+	// Delegate to menu model for navigation
+	var cmd tea.Cmd
+	m.menu, cmd = m.menu.Update(msg)
+
+	// Check if we've drilled into scripts
+	if m.menu.ShowingScripts() {
+		m.state = StateScriptList
+		m.selectedCatIdx = m.menu.SelectedCategoryIndex()
+	}
+
+	return m, cmd
 }
 
 // updateScriptList handles input in the script list state.
 func (m AppModel) updateScriptList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.Select):
-		// Will emit ScriptSelectedMsg when MenuModel is implemented
-		return m, nil
-	case key.Matches(msg, m.keys.Back):
-		m.state = StateCategoryList
-		m.selectedCatIdx = -1
-		return m, nil
 	case key.Matches(msg, m.keys.Filter):
 		m.prevState = m.state
 		m.state = StateFilter
@@ -187,7 +203,18 @@ func (m AppModel) updateScriptList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Refresh):
 		return m, func() tea.Msg { return RefreshMsg{} }
 	}
-	return m, nil
+
+	// Delegate to menu model for navigation
+	var cmd tea.Cmd
+	m.menu, cmd = m.menu.Update(msg)
+
+	// Check if we've navigated back to categories
+	if !m.menu.ShowingScripts() {
+		m.state = StateCategoryList
+		m.selectedCatIdx = -1
+	}
+
+	return m, cmd
 }
 
 // updateFilter handles input in the filter state.
@@ -224,26 +251,9 @@ func (m AppModel) View() string {
 	case StateHelp:
 		return m.renderHelp()
 	default:
-		// CategoryList, ScriptList, Filter views will be rendered by MenuModel
-		return m.renderPlaceholder()
+		// CategoryList, ScriptList views are rendered by MenuModel
+		return m.menu.View()
 	}
-}
-
-// renderPlaceholder renders a placeholder view until MenuModel is implemented.
-func (m AppModel) renderPlaceholder() string {
-	header := Styles.Header.Render("tap - Script Runner")
-	footer := Styles.Footer.Render("↑/↓ navigate  enter select  / filter  q quit")
-
-	content := "Categories:\n"
-	for i, cat := range m.categories {
-		prefix := "  "
-		if i == 0 {
-			prefix = "> "
-		}
-		content += Styles.Dimmed.Render(prefix+cat.Name) + "\n"
-	}
-
-	return header + "\n\n" + content + "\n" + footer
 }
 
 // renderHelp renders the help overlay.
@@ -290,6 +300,7 @@ func (m AppModel) SelectedScript() *core.Script {
 // SetCategories updates the categories (for testing).
 func (m *AppModel) SetCategories(categories []core.Category) {
 	m.categories = categories
+	m.menu.SetCategories(categories)
 	if len(categories) > 0 && m.state == StateLoading {
 		m.state = StateCategoryList
 	}

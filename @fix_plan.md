@@ -64,12 +64,12 @@
   - internal/tui/keys.go: key bindings
   - Spec: specs/03-tui-menu.md
 
-- [ ] Implement category list view ← CURRENT
+- [x] Implement category list view
   - internal/tui/menu.go: MenuModel with bubbles/list
   - Category navigation with enter to drill down
   - Back navigation with esc/backspace
 
-- [ ] Implement script list view
+- [ ] Implement script list view ← CURRENT
   - Script list within selected category
   - Custom delegate for script rendering
   - Enter to select script
