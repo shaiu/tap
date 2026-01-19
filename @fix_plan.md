@@ -48,17 +48,17 @@
   - testdata/scripts/ directory with test scripts
 
 ### Configuration
-- [ ] Implement config manager ← CURRENT
+- [x] Implement config manager
   - internal/config/config.go: Config struct, Load/Save functions
   - XDG path handling with adrg/xdg
   - Default config creation on first run
   - Spec: specs/02-config.md
 
-- [ ] Add config tests
+- [x] Add config tests
   - internal/config/config_test.go
 
 ### TUI Menu
-- [ ] Implement base TUI app model
+- [ ] Implement base TUI app model ← CURRENT
   - internal/tui/app.go: AppModel, state machine
   - internal/tui/styles.go: lipgloss styles
   - internal/tui/keys.go: key bindings
