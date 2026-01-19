@@ -91,13 +91,13 @@
   - testdata/echo.sh, testdata/exit_code.sh, testdata/stderr.sh, testdata/workdir.sh
 
 ### CLI Wiring
-- [ ] Implement root command ← CURRENT
+- [x] Implement root command
   - internal/cli/root.go: Cobra root command
   - Mode detection (interactive vs headless)
   - cmd/tap/main.go: entry point
   - Spec: specs/06-cli.md
 
-- [ ] Implement list command
+- [ ] Implement list command ← CURRENT
   - internal/cli/list.go: tap list
   - Category filtering with --category
   - JSON output with --json

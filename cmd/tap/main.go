@@ -3,9 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/shaiungar/tap/internal/cli"
 )
 
 func main() {
-	fmt.Println("tap - your personal script runner")
-	os.Exit(0)
+	if err := cli.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
