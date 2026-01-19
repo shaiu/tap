@@ -58,13 +58,13 @@
   - internal/config/config_test.go
 
 ### TUI Menu
-- [ ] Implement base TUI app model ← CURRENT
+- [x] Implement base TUI app model
   - internal/tui/app.go: AppModel, state machine
   - internal/tui/styles.go: lipgloss styles
   - internal/tui/keys.go: key bindings
   - Spec: specs/03-tui-menu.md
 
-- [ ] Implement category list view
+- [ ] Implement category list view ← CURRENT
   - internal/tui/menu.go: MenuModel with bubbles/list
   - Category navigation with enter to drill down
   - Back navigation with esc/backspace
