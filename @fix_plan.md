@@ -27,16 +27,16 @@
   - Handle python scripts (docstring with ---)
   - Spec: specs/01-scanner.md#metadata-extraction
 
-- [ ] Add parser tests ← CURRENT
+- [x] Add parser tests
   - internal/core/parser_test.go
   - testdata/valid_bash.sh
-  - testdata/valid_python.py  
+  - testdata/valid_python.py
   - testdata/minimal.sh
   - testdata/no_metadata.sh
   - testdata/invalid_yaml.sh
 
 ### Directory Scanner
-- [ ] Implement directory scanner
+- [ ] Implement directory scanner ← CURRENT
   - internal/core/scanner.go: Scanner interface, ScanDirectory function
   - Use filepath.WalkDir for efficiency
   - Filter by extensions (.sh, .bash, .py)
