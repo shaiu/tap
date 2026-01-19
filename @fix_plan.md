@@ -1,21 +1,21 @@
 # tap Implementation Plan
 
-> Last updated: Initial seed
+> Last updated: 2026-01-19
 > Status: Phase 1 - Foundation
 
 ## Phase 1: Foundation (MVP)
 
 ### Completed
-_(none yet)_
+- [x] Initialize Go module and project structure
+  - Created go.mod with module path github.com/shaiungar/tap
+  - Created directory structure: cmd/tap/, internal/core/, internal/tui/, internal/config/, internal/cli/, internal/templates/
+  - Added .gitignore for Go projects
+  - Added minimal main.go entry point
 
 ### Current Focus
-- [ ] Initialize Go module and project structure ← CURRENT
-  - Create go.mod with module path
-  - Create directory structure: cmd/tap/, internal/core/, internal/tui/, internal/config/, internal/cli/
-  - Add .gitignore for Go projects
 
 ### Core Models
-- [ ] Create script and parameter data models
+- [ ] Create script and parameter data models ← CURRENT
   - internal/core/script.go: Script, Parameter, Example structs
   - internal/core/category.go: Category struct
   - Spec: specs/01-scanner.md#data-structures

@@ -1,0 +1,36 @@
+# Binaries
+tap
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+/bin/
+/dist/
+
+# Local environment
+.env
+.env.local
