@@ -21,13 +21,13 @@
   - Spec: specs/01-scanner.md#data-structures
 
 ### Metadata Parser
-- [ ] Implement YAML front matter parser ← CURRENT
-  - internal/core/parser.go: ExtractMetadata function
+- [x] Implement YAML front matter parser
+  - internal/core/parser.go: ParseScript function
   - Handle bash scripts (# --- delimiters)
   - Handle python scripts (docstring with ---)
   - Spec: specs/01-scanner.md#metadata-extraction
 
-- [ ] Add parser tests
+- [ ] Add parser tests ← CURRENT
   - internal/core/parser_test.go
   - testdata/valid_bash.sh
   - testdata/valid_python.py  
