@@ -69,12 +69,12 @@
   - Category navigation with enter to drill down
   - Back navigation with esc/backspace
 
-- [ ] Implement script list view ← CURRENT
+- [x] Implement script list view
   - Script list within selected category
   - Custom delegate for script rendering
   - Enter to select script
 
-- [ ] Implement filter overlay
+- [ ] Implement filter overlay ← CURRENT
   - Textinput for fuzzy filtering
   - / to activate, esc to cancel
   - Filter both categories and scripts
