@@ -15,13 +15,13 @@
 ### Current Focus
 
 ### Core Models
-- [ ] Create script and parameter data models ← CURRENT
+- [x] Create script and parameter data models
   - internal/core/script.go: Script, Parameter, Example structs
   - internal/core/category.go: Category struct
   - Spec: specs/01-scanner.md#data-structures
 
-### Metadata Parser  
-- [ ] Implement YAML front matter parser
+### Metadata Parser
+- [ ] Implement YAML front matter parser ← CURRENT
   - internal/core/parser.go: ExtractMetadata function
   - Handle bash scripts (# --- delimiters)
   - Handle python scripts (docstring with ---)
