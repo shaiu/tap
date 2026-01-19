@@ -5,13 +5,14 @@ import "github.com/charmbracelet/lipgloss"
 
 // Styles holds all the lipgloss styles used in the TUI.
 var Styles = struct {
-	Header   lipgloss.Style
-	Footer   lipgloss.Style
-	Help     lipgloss.Style
-	Selected lipgloss.Style
-	Dimmed   lipgloss.Style
-	Title    lipgloss.Style
-	Error    lipgloss.Style
+	Header      lipgloss.Style
+	Footer      lipgloss.Style
+	Help        lipgloss.Style
+	Selected    lipgloss.Style
+	Dimmed      lipgloss.Style
+	Title       lipgloss.Style
+	Error       lipgloss.Style
+	FilterInput lipgloss.Style
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
@@ -40,4 +41,10 @@ var Styles = struct {
 	Error: lipgloss.NewStyle().
 		Foreground(lipgloss.Color("196")).
 		Bold(true),
+
+	FilterInput: lipgloss.NewStyle().
+		Foreground(lipgloss.Color("212")).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("241")).
+		Padding(0, 1),
 }

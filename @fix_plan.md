@@ -74,13 +74,13 @@
   - Custom delegate for script rendering
   - Enter to select script
 
-- [ ] Implement filter overlay ← CURRENT
+- [x] Implement filter overlay
   - Textinput for fuzzy filtering
   - / to activate, esc to cancel
   - Filter both categories and scripts
 
 ### Executor
-- [ ] Implement script executor
+- [ ] Implement script executor ← CURRENT
   - internal/core/executor.go: Executor interface, Execute function
   - Real-time stdout/stderr streaming
   - Exit code pass-through

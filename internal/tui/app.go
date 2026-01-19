@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shaiungar/tap/internal/core"
 )
@@ -65,6 +68,9 @@ type AppModel struct {
 	// Menu
 	menu MenuModel
 
+	// Filter
+	filterInput textinput.Model
+
 	// Selection
 	selectedCatIdx int
 	selectedScript *core.Script
@@ -90,10 +96,17 @@ func NewAppModel(categories []core.Category) AppModel {
 	// Default dimensions (will be updated on WindowSizeMsg)
 	width, height := 80, 24
 
+	// Create filter input
+	fi := textinput.New()
+	fi.Placeholder = "Filter..."
+	fi.CharLimit = 50
+	fi.Width = 30
+
 	return AppModel{
 		state:          state,
 		categories:     categories,
 		menu:           NewMenuModel(categories, width, height),
+		filterInput:    fi,
 		selectedCatIdx: -1,
 		width:          width,
 		height:         height,
@@ -175,7 +188,9 @@ func (m AppModel) updateCategoryList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Filter):
 		m.prevState = m.state
 		m.state = StateFilter
-		return m, nil
+		m.filterInput.SetValue("")
+		m.filterInput.Focus()
+		return m, textinput.Blink
 	case key.Matches(msg, m.keys.Refresh):
 		return m, func() tea.Msg { return RefreshMsg{} }
 	}
@@ -199,7 +214,9 @@ func (m AppModel) updateScriptList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Filter):
 		m.prevState = m.state
 		m.state = StateFilter
-		return m, nil
+		m.filterInput.SetValue("")
+		m.filterInput.Focus()
+		return m, textinput.Blink
 	case key.Matches(msg, m.keys.Refresh):
 		return m, func() tea.Msg { return RefreshMsg{} }
 	}
@@ -219,17 +236,29 @@ func (m AppModel) updateScriptList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updateFilter handles input in the filter state.
 func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.Select):
-		// Confirm filter, stay in previous state's list
+	switch msg.Type {
+	case tea.KeyEnter:
+		// Confirm filter - keep filtered results and exit filter mode
+		m.filterInput.Blur()
 		m.state = m.prevState
 		return m, nil
-	case key.Matches(msg, m.keys.Back):
-		// Cancel filter, restore state
+	case tea.KeyEscape:
+		// Cancel filter - restore full list and exit filter mode
+		m.filterInput.Blur()
+		m.filterInput.SetValue("")
+		m.menu.ClearFilter()
 		m.state = m.prevState
 		return m, nil
 	}
-	return m, nil
+
+	// Update the text input
+	var cmd tea.Cmd
+	m.filterInput, cmd = m.filterInput.Update(msg)
+
+	// Apply filter to menu
+	m.menu.ApplyFilter(m.filterInput.Value())
+
+	return m, cmd
 }
 
 // updateHelp handles input in the help state.
@@ -250,10 +279,42 @@ func (m AppModel) View() string {
 		return "Loading scripts..."
 	case StateHelp:
 		return m.renderHelp()
+	case StateFilter:
+		return m.renderFilterView()
 	default:
 		// CategoryList, ScriptList views are rendered by MenuModel
 		return m.menu.View()
 	}
+}
+
+// renderFilterView renders the view with the filter input overlay.
+func (m AppModel) renderFilterView() string {
+	var s strings.Builder
+
+	// Header
+	if m.menu.ShowingScripts() && m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
+		s.WriteString(Styles.Header.Render("tap - " + m.categories[m.selectedCatIdx].Name))
+	} else {
+		s.WriteString(Styles.Header.Render("tap - Script Runner"))
+	}
+	s.WriteString("\n\n")
+
+	// Filter input
+	s.WriteString(Styles.FilterInput.Render("Filter: " + m.filterInput.View()))
+	s.WriteString("\n\n")
+
+	// Show filtered list from menu
+	if m.menu.ShowingScripts() {
+		s.WriteString(m.menu.scriptList.View())
+	} else {
+		s.WriteString(m.menu.categoryList.View())
+	}
+
+	// Footer
+	s.WriteString("\n")
+	s.WriteString(Styles.Footer.Render("enter select  esc cancel"))
+
+	return s.String()
 }
 
 // renderHelp renders the help overlay.

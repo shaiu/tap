@@ -358,3 +358,67 @@ func (m *MenuModel) SetSize(width, height int) {
 	m.categoryList.SetSize(width, listHeight)
 	m.scriptList.SetSize(width, listHeight)
 }
+
+// ApplyFilter filters the current list based on the query string.
+func (m *MenuModel) ApplyFilter(query string) {
+	query = strings.ToLower(strings.TrimSpace(query))
+
+	if query == "" {
+		m.ClearFilter()
+		return
+	}
+
+	if m.showingScripts {
+		// Filter scripts in the selected category
+		if m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
+			var filtered []list.Item
+			for _, script := range m.categories[m.selectedCatIdx].Scripts {
+				if fuzzyMatch(script, query) {
+					filtered = append(filtered, ScriptItem{Script: script})
+				}
+			}
+			m.scriptList.SetItems(filtered)
+		}
+	} else {
+		// Filter categories
+		var filtered []list.Item
+		for _, cat := range m.categories {
+			if strings.Contains(strings.ToLower(cat.Name), query) {
+				filtered = append(filtered, CategoryItem{Category: cat})
+			}
+		}
+		m.categoryList.SetItems(filtered)
+	}
+}
+
+// ClearFilter restores the full list of items.
+func (m *MenuModel) ClearFilter() {
+	if m.showingScripts {
+		// Restore full script list for selected category
+		if m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
+			items := make([]list.Item, len(m.categories[m.selectedCatIdx].Scripts))
+			for i, script := range m.categories[m.selectedCatIdx].Scripts {
+				items[i] = ScriptItem{Script: script}
+			}
+			m.scriptList.SetItems(items)
+		}
+	} else {
+		// Restore full category list
+		catItems := make([]list.Item, len(m.categories))
+		for i, cat := range m.categories {
+			catItems[i] = CategoryItem{Category: cat}
+		}
+		m.categoryList.SetItems(catItems)
+	}
+}
+
+// fuzzyMatch checks if a script matches the query string.
+func fuzzyMatch(script core.Script, query string) bool {
+	searchText := strings.ToLower(fmt.Sprintf("%s %s %s",
+		script.Name,
+		script.Description,
+		strings.Join(script.Tags, " ")))
+
+	// Simple contains match - could be upgraded to true fuzzy
+	return strings.Contains(searchText, query)
+}

@@ -214,3 +214,115 @@ func TestKeyMap_FullHelp(t *testing.T) {
 	help := keys.FullHelp()
 	assert.Len(t, help, 2)
 }
+
+func TestAppModel_FilterActivation(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	model := NewAppModel(categories)
+	assert.Equal(t, StateCategoryList, model.State())
+
+	// Press / to activate filter
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, cmd := model.Update(msg)
+	m := updated.(AppModel)
+
+	assert.Equal(t, StateFilter, m.State())
+	assert.Equal(t, StateCategoryList, m.prevState)
+	// Should return blink command
+	assert.NotNil(t, cmd)
+}
+
+func TestAppModel_FilterCancel(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Activate filter
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	assert.Equal(t, StateFilter, m.State())
+
+	// Type something to filter
+	m.filterInput.SetValue("dep")
+	m.menu.ApplyFilter("dep")
+
+	// Press esc to cancel
+	msg = tea.KeyMsg{Type: tea.KeyEscape}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+
+	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, "", m.filterInput.Value())
+}
+
+func TestAppModel_FilterConfirm(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Activate filter
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// Type something to filter
+	m.filterInput.SetValue("dep")
+	m.menu.ApplyFilter("dep")
+
+	// Press enter to confirm
+	msg = tea.KeyMsg{Type: tea.KeyEnter}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+
+	// Should return to previous state with filter applied
+	assert.Equal(t, StateCategoryList, m.State())
+	// Filter value is preserved
+	assert.Equal(t, "dep", m.filterInput.Value())
+}
+
+func TestAppModel_FilterViewRendering(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+	}
+	model := NewAppModel(categories)
+	model.state = StateFilter
+	model.prevState = StateCategoryList
+
+	view := model.View()
+
+	// Should show filter input
+	assert.Contains(t, view, "Filter:")
+	// Should show footer with filter keys
+	assert.Contains(t, view, "enter")
+	assert.Contains(t, view, "esc")
+}
+
+func TestAppModel_FilterInScriptList(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy app"},
+			{Name: "rollback", Description: "Rollback deployment"},
+		}},
+	}
+	model := NewAppModel(categories)
+
+	// Drill into category first
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	assert.Equal(t, StateScriptList, m.State())
+
+	// Press / to activate filter
+	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+	assert.Equal(t, StateFilter, m.State())
+	assert.Equal(t, StateScriptList, m.prevState)
+}

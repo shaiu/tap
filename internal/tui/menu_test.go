@@ -257,3 +257,175 @@ func TestScriptDelegate_Height(t *testing.T) {
 	assert.Equal(t, 2, delegate.Height())
 	assert.Equal(t, 1, delegate.Spacing())
 }
+
+func TestMenuModel_ApplyFilter_Categories(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+		{Name: "maintenance", Scripts: []core.Script{{Name: "cleanup"}}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Apply filter for "dep"
+	menu.ApplyFilter("dep")
+
+	// Should only show "deployment" category
+	items := menu.categoryList.Items()
+	assert.Len(t, items, 1)
+	catItem, ok := items[0].(CategoryItem)
+	require.True(t, ok)
+	assert.Equal(t, "deployment", catItem.Category.Name)
+}
+
+func TestMenuModel_ApplyFilter_Scripts(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy application"},
+			{Name: "rollback", Description: "Rollback deployment"},
+			{Name: "scale", Description: "Scale replicas"},
+		}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Drill into category
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	menu, _ = menu.Update(msg)
+	require.True(t, menu.ShowingScripts())
+
+	// Apply filter for "deploy"
+	menu.ApplyFilter("deploy")
+
+	// Should show both "deploy" and "rollback" (rollback has "deployment" in description)
+	items := menu.scriptList.Items()
+	assert.Len(t, items, 2)
+}
+
+func TestMenuModel_ApplyFilter_CaseInsensitive(t *testing.T) {
+	categories := []core.Category{
+		{Name: "Deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "Data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Apply filter with different case
+	menu.ApplyFilter("DEPLOY")
+
+	// Should still match "Deployment"
+	items := menu.categoryList.Items()
+	assert.Len(t, items, 1)
+}
+
+func TestMenuModel_ApplyFilter_EmptyQuery(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Apply filter
+	menu.ApplyFilter("dep")
+	assert.Len(t, menu.categoryList.Items(), 1)
+
+	// Apply empty filter - should restore full list
+	menu.ApplyFilter("")
+	assert.Len(t, menu.categoryList.Items(), 2)
+}
+
+func TestMenuModel_ClearFilter_Categories(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
+		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Apply filter
+	menu.ApplyFilter("dep")
+	assert.Len(t, menu.categoryList.Items(), 1)
+
+	// Clear filter
+	menu.ClearFilter()
+	assert.Len(t, menu.categoryList.Items(), 2)
+}
+
+func TestMenuModel_ClearFilter_Scripts(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy app"},
+			{Name: "rollback", Description: "Rollback"},
+			{Name: "scale", Description: "Scale replicas"},
+		}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Drill into category
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	menu, _ = menu.Update(msg)
+
+	// Apply filter
+	menu.ApplyFilter("deploy")
+	assert.Less(t, len(menu.scriptList.Items()), 3)
+
+	// Clear filter
+	menu.ClearFilter()
+	assert.Len(t, menu.scriptList.Items(), 3)
+}
+
+func TestMenuModel_ApplyFilter_ByTags(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy app", Tags: []string{"prod", "release"}},
+			{Name: "rollback", Description: "Rollback", Tags: []string{"prod"}},
+			{Name: "test", Description: "Run tests", Tags: []string{"dev"}},
+		}},
+	}
+	menu := NewMenuModel(categories, 80, 24)
+
+	// Drill into category
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	menu, _ = menu.Update(msg)
+
+	// Filter by tag
+	menu.ApplyFilter("release")
+
+	// Should only show deploy (has "release" tag)
+	items := menu.scriptList.Items()
+	assert.Len(t, items, 1)
+	scriptItem, ok := items[0].(ScriptItem)
+	require.True(t, ok)
+	assert.Equal(t, "deploy", scriptItem.Script.Name)
+}
+
+func TestFuzzyMatch(t *testing.T) {
+	tests := []struct {
+		script  core.Script
+		query   string
+		matches bool
+	}{
+		{
+			script:  core.Script{Name: "deploy", Description: "Deploy app"},
+			query:   "deploy",
+			matches: true,
+		},
+		{
+			script:  core.Script{Name: "backup", Description: "Backup database"},
+			query:   "deploy",
+			matches: false,
+		},
+		{
+			script:  core.Script{Name: "test", Description: "Run deployment tests"},
+			query:   "deploy",
+			matches: true, // "deployment" in description
+		},
+		{
+			script:  core.Script{Name: "release", Description: "Release app", Tags: []string{"prod", "deploy"}},
+			query:   "deploy",
+			matches: true, // "deploy" in tags
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.script.Name+"_"+tt.query, func(t *testing.T) {
+			assert.Equal(t, tt.matches, fuzzyMatch(tt.script, tt.query))
+		})
+	}
+}
