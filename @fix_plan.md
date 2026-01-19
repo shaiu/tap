@@ -97,13 +97,13 @@
   - cmd/tap/main.go: entry point
   - Spec: specs/06-cli.md
 
-- [ ] Implement list command ← CURRENT
+- [x] Implement list command
   - internal/cli/list.go: tap list
   - Category filtering with --category
   - JSON output with --json
 
 ### Integration
-- [ ] Wire everything together
+- [ ] Wire everything together ← CURRENT
   - TUI launches from root command
   - Script selection triggers executor
   - Exit TUI before execution (tea.ExitAltScreen)
