@@ -80,18 +80,18 @@
   - Filter both categories and scripts
 
 ### Executor
-- [ ] Implement script executor ← CURRENT
+- [x] Implement script executor
   - internal/core/executor.go: Executor interface, Execute function
   - Real-time stdout/stderr streaming
   - Exit code pass-through
   - Spec: specs/05-executor.md
 
-- [ ] Add executor tests
+- [x] Add executor tests
   - internal/core/executor_test.go
-  - testdata/echo.sh, testdata/exit_code.sh
+  - testdata/echo.sh, testdata/exit_code.sh, testdata/stderr.sh, testdata/workdir.sh
 
 ### CLI Wiring
-- [ ] Implement root command
+- [ ] Implement root command ← CURRENT
   - internal/cli/root.go: Cobra root command
   - Mode detection (interactive vs headless)
   - cmd/tap/main.go: entry point
