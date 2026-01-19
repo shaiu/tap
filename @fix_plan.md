@@ -36,19 +36,19 @@
   - testdata/invalid_yaml.sh
 
 ### Directory Scanner
-- [ ] Implement directory scanner ← CURRENT
+- [x] Implement directory scanner
   - internal/core/scanner.go: Scanner interface, ScanDirectory function
   - Use filepath.WalkDir for efficiency
   - Filter by extensions (.sh, .bash, .py)
   - Skip ignored directories (.git, node_modules, etc.)
   - Spec: specs/01-scanner.md#directory-scanning
 
-- [ ] Add scanner tests
+- [x] Add scanner tests
   - internal/core/scanner_test.go
   - testdata/scripts/ directory with test scripts
 
 ### Configuration
-- [ ] Implement config manager
+- [ ] Implement config manager ← CURRENT
   - internal/config/config.go: Config struct, Load/Save functions
   - XDG path handling with adrg/xdg
   - Default config creation on first run
