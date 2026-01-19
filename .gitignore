@@ -1,5 +1,5 @@
-# Binaries
-tap
+# Binaries (root-level only to not ignore cmd/tap/)
+/tap
 *.exe
 *.exe~
 *.dll
