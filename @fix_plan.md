@@ -109,13 +109,15 @@
   - Exit TUI before execution (tea.ExitAltScreen)
   - Pass through exit code
 
-- [ ] End-to-end testing ← CURRENT
+- [x] End-to-end testing
   - Manual test: tap → navigate → select → execute
   - Verify real script execution works
+  - Added testdata/e2e/ with test scripts (hello.sh, greet.sh, show-env.sh, exit-code.sh)
+  - Added internal/cli/integration_test.go with comprehensive E2E tests
 
 ---
 
-## Phase 2: Parameters & Headless
+## Phase 2: Parameters & Headless ← CURRENT
 _(not started - complete Phase 1 first)_
 
 - [ ] Parameter parsing in metadata
