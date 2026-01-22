@@ -103,13 +103,13 @@
   - JSON output with --json
 
 ### Integration
-- [ ] Wire everything together ← CURRENT
+- [x] Wire everything together
   - TUI launches from root command
   - Script selection triggers executor
   - Exit TUI before execution (tea.ExitAltScreen)
   - Pass through exit code
 
-- [ ] End-to-end testing
+- [ ] End-to-end testing ← CURRENT
   - Manual test: tap → navigate → select → execute
   - Verify real script execution works
 
