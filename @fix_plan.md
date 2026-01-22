@@ -117,11 +117,13 @@
 
 ---
 
-## Phase 2: Parameters & Headless ← CURRENT
-_(not started - complete Phase 1 first)_
+## Phase 2: Parameters & Headless
+_(in progress)_
 
-- [ ] Parameter parsing in metadata
-- [ ] TUI parameter form (huh library)
+- [x] Parameter parsing in metadata ← DONE
+  - Added validateParameters() function to parser.go
+  - Validates: name identifiers, type values, short flag length, duplicate names/shorts, default in choices
+- [ ] TUI parameter form (huh library) ← CURRENT
 - [ ] `tap run <script>` command
 - [ ] --param flag handling
 - [ ] Parameter validation

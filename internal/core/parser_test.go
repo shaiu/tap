@@ -335,3 +335,394 @@ func TestParseScript_PathIsAbsolute(t *testing.T) {
 		t.Errorf("Path should be absolute, got: %q", script.Path)
 	}
 }
+
+func TestParseScript_ParameterValidation_InvalidType(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "invalid_type.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: foo
+#     type: invalid
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for invalid parameter type, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "invalid type") {
+		t.Errorf("error message should mention 'invalid type', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_InvalidName(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "invalid_name.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: "foo bar"
+#     type: string
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for invalid parameter name, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "invalid name") {
+		t.Errorf("error message should mention 'invalid name', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_DuplicateName(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "duplicate_name.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: foo
+#     type: string
+#   - name: foo
+#     type: int
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for duplicate parameter name, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "duplicate name") {
+		t.Errorf("error message should mention 'duplicate name', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_InvalidShortFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "invalid_short.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: foo
+#     type: string
+#     short: abc
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for invalid short flag, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "short flag must be a single character") {
+		t.Errorf("error message should mention 'short flag must be a single character', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_DuplicateShortFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "duplicate_short.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: foo
+#     type: string
+#     short: f
+#   - name: bar
+#     type: string
+#     short: f
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for duplicate short flag, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "duplicate short flag") {
+		t.Errorf("error message should mention 'duplicate short flag', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_DefaultNotInChoices(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "default_not_in_choices.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: env
+#     type: string
+#     choices: [staging, production]
+#     default: development
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for default not in choices, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+	if err != nil && !contains(err.Error(), "not in choices") {
+		t.Errorf("error message should mention 'not in choices', got: %v", err)
+	}
+}
+
+func TestParseScript_ParameterValidation_ValidChoicesWithDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "valid_choices.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: env
+#     type: string
+#     choices: [staging, production]
+#     default: staging
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if script == nil {
+		t.Fatal("expected script, got nil")
+	}
+	if script.Parameters[0].Default != "staging" {
+		t.Errorf("Default = %v, want %v", script.Parameters[0].Default, "staging")
+	}
+}
+
+func TestParseScript_ParameterValidation_EmptyName(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "empty_name.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: ""
+#     type: string
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for empty parameter name, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+}
+
+func TestParseScript_ParameterValidation_NameStartsWithDigit(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "digit_name.sh")
+	content := `#!/bin/bash
+# ---
+# name: test
+# description: Test script
+# parameters:
+#   - name: 1foo
+#     type: string
+# ---
+echo "test"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err == nil {
+		t.Error("expected error for parameter name starting with digit, got nil")
+	}
+	if script != nil {
+		t.Errorf("expected nil script, got %+v", script)
+	}
+}
+
+func TestValidateParameters(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  []Parameter
+		wantErr bool
+	}{
+		{
+			name:    "empty params",
+			params:  nil,
+			wantErr: false,
+		},
+		{
+			name: "valid params",
+			params: []Parameter{
+				{Name: "foo", Type: "string"},
+				{Name: "bar", Type: "int", Short: "b"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid with underscore and hyphen",
+			params: []Parameter{
+				{Name: "foo_bar", Type: "string"},
+				{Name: "baz-qux", Type: "int"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty type defaults ok",
+			params: []Parameter{
+				{Name: "foo"}, // empty type is valid (defaults to string)
+			},
+			wantErr: false,
+		},
+		{
+			name: "numeric choices with default",
+			params: []Parameter{
+				{Name: "replicas", Type: "int", Choices: []any{1, 2, 3}, Default: 2},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateParameters(tt.params)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateParameters() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestIsValidIdentifier(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"foo", true},
+		{"Foo", true},
+		{"foo_bar", true},
+		{"foo-bar", true},
+		{"foo123", true},
+		{"_foo", true},
+		{"FOO_BAR", true},
+		{"", false},
+		{"123foo", false},
+		{"foo bar", false},
+		{"foo.bar", false},
+		{"foo@bar", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := isValidIdentifier(tt.input)
+			if got != tt.want {
+				t.Errorf("isValidIdentifier(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestChoicesEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b any
+		want bool
+	}{
+		{"string equal", "foo", "foo", true},
+		{"string not equal", "foo", "bar", false},
+		{"int equal", 42, 42, true},
+		{"int not equal", 42, 43, false},
+		{"float equal", 3.14, 3.14, true},
+		{"int and float equal", 42, 42.0, true},
+		{"float and int equal", 42.0, 42, true},
+		{"bool equal", true, true, true},
+		{"bool not equal", true, false, false},
+		{"string and int not equal", "42", 42, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := choicesEqual(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("choicesEqual(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+// helper function for string contains
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
