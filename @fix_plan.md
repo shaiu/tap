@@ -128,9 +128,17 @@ _(in progress)_
   - Supports string, int, float, bool params and choices
   - Integrated StateForm into app.go with form messages
   - Added Required style and comprehensive tests
-- [ ] `tap run <script>` command ← CURRENT
-- [ ] --param flag handling
-- [ ] Parameter validation
+- [x] `tap run <script>` command ← DONE
+  - Added internal/cli/run.go with full run command
+  - Supports --param/-p flags and inline key=value params
+  - Finds scripts by name or category/name prefix
+  - Validates parameter types and choices
+  - Applies defaults for missing optional params
+  - Shows interactive form when required params missing
+  - Added comprehensive tests in run_test.go
+- [x] --param flag handling ← (included in tap run)
+- [x] Parameter validation ← (included in tap run)
+- [ ] Integration tests for run command ← CURRENT
 
 ---
 

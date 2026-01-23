@@ -41,12 +41,20 @@ type FormModel struct {
 
 // NewFormModel creates a new FormModel for the given script.
 func NewFormModel(script core.Script, width, height int) FormModel {
+	return NewFormModelWithValues(script, nil, width, height)
+}
+
+// NewFormModelWithValues creates a new FormModel with prefilled values.
+func NewFormModelWithValues(script core.Script, prefilled map[string]string, width, height int) FormModel {
 	values := make(map[string]any)
+	if prefilled == nil {
+		prefilled = make(map[string]string)
+	}
 
 	// Build form fields
 	var fields []huh.Field
 	for _, param := range script.Parameters {
-		field := buildField(param, values)
+		field := buildField(param, values, prefilled)
 		fields = append(fields, field)
 	}
 
@@ -75,8 +83,11 @@ func NewFormModel(script core.Script, width, height int) FormModel {
 }
 
 // buildField creates the appropriate huh field for a parameter.
-func buildField(param core.Parameter, values map[string]any) huh.Field {
+func buildField(param core.Parameter, values map[string]any, prefilled map[string]string) huh.Field {
 	title := formatTitle(param)
+
+	// Check for prefilled value
+	prefilledValue, hasPrefilled := prefilled[param.Name]
 
 	switch {
 	case len(param.Choices) > 0:
@@ -88,7 +99,9 @@ func buildField(param core.Parameter, values map[string]any) huh.Field {
 		}
 
 		var value string
-		if param.Default != nil {
+		if hasPrefilled {
+			value = prefilledValue
+		} else if param.Default != nil {
 			value = fmt.Sprintf("%v", param.Default)
 		}
 		values[param.Name] = &value
@@ -103,7 +116,9 @@ func buildField(param core.Parameter, values map[string]any) huh.Field {
 	case param.Type == core.ParamTypeBool:
 		// Confirm field for booleans
 		value := false
-		if param.Default != nil {
+		if hasPrefilled {
+			value, _ = strconv.ParseBool(prefilledValue)
+		} else if param.Default != nil {
 			if b, ok := param.Default.(bool); ok {
 				value = b
 			}
@@ -119,7 +134,9 @@ func buildField(param core.Parameter, values map[string]any) huh.Field {
 	case param.Type == core.ParamTypeInt:
 		// Text input with int validation
 		value := ""
-		if param.Default != nil {
+		if hasPrefilled {
+			value = prefilledValue
+		} else if param.Default != nil {
 			value = fmt.Sprintf("%v", param.Default)
 		}
 		values[param.Name] = &value
@@ -137,7 +154,9 @@ func buildField(param core.Parameter, values map[string]any) huh.Field {
 	case param.Type == core.ParamTypeFloat:
 		// Text input with float validation
 		value := ""
-		if param.Default != nil {
+		if hasPrefilled {
+			value = prefilledValue
+		} else if param.Default != nil {
 			value = fmt.Sprintf("%g", param.Default)
 		}
 		values[param.Name] = &value
@@ -155,7 +174,9 @@ func buildField(param core.Parameter, values map[string]any) huh.Field {
 	default:
 		// Text input for string/path
 		value := ""
-		if param.Default != nil {
+		if hasPrefilled {
+			value = prefilledValue
+		} else if param.Default != nil {
 			value = fmt.Sprintf("%v", param.Default)
 		}
 		values[param.Name] = &value
@@ -253,7 +274,7 @@ func (m FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			return FormSubmittedMsg{
 				Script:     m.script,
-				Parameters: m.collectValues(),
+				Parameters: m.CollectValues(),
 			}
 		}
 	}
@@ -261,8 +282,8 @@ func (m FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// collectValues gathers all form values as strings.
-func (m FormModel) collectValues() map[string]string {
+// CollectValues gathers all form values as strings.
+func (m FormModel) CollectValues() map[string]string {
 	result := make(map[string]string)
 
 	for _, param := range m.script.Parameters {
