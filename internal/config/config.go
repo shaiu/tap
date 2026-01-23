@@ -22,13 +22,14 @@ var (
 
 // Config represents tap's configuration.
 type Config struct {
-	ScanDirs     []string  `yaml:"scan_dirs"`
-	Extensions   []string  `yaml:"extensions"`
-	IgnoreDirs   []string  `yaml:"ignore_dirs"`
-	MaxDepth     int       `yaml:"max_depth"`
-	TUI          TUIConfig `yaml:"tui"`
-	DefaultShell string    `yaml:"default_shell"`
-	Editor       string    `yaml:"editor"`
+	ScanDirs        []string  `yaml:"scan_dirs"`
+	Extensions      []string  `yaml:"extensions"`
+	IgnoreDirs      []string  `yaml:"ignore_dirs"`
+	MaxDepth        int       `yaml:"max_depth"`
+	TUI             TUIConfig `yaml:"tui"`
+	DefaultShell    string    `yaml:"default_shell"`
+	Editor          string    `yaml:"editor"`
+	AutoGenMetadata *bool     `yaml:"auto_gen_metadata,omitempty"` // nil = true (default), false = disabled
 }
 
 // TUIConfig holds TUI-specific settings.
@@ -143,14 +144,24 @@ func NewManagerWithPaths(configPath, registryPath, cachePath string) *DefaultMan
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		ScanDirs:     []string{},
-		Extensions:   DefaultExtensions,
-		IgnoreDirs:   DefaultIgnoreDirs,
-		MaxDepth:     DefaultMaxDepth,
-		TUI:          TUIConfig{ShowPaths: false, Theme: "default"},
-		DefaultShell: "bash",
-		Editor:       "",
+		ScanDirs:        []string{},
+		Extensions:      DefaultExtensions,
+		IgnoreDirs:      DefaultIgnoreDirs,
+		MaxDepth:        DefaultMaxDepth,
+		TUI:             TUIConfig{ShowPaths: false, Theme: "default"},
+		DefaultShell:    "bash",
+		Editor:          "",
+		AutoGenMetadata: nil, // nil means true (default)
 	}
+}
+
+// GetAutoGenMetadata returns the effective value of AutoGenMetadata.
+// Returns true if not explicitly set to false.
+func (c *Config) GetAutoGenMetadata() bool {
+	if c.AutoGenMetadata == nil {
+		return true // default to true
+	}
+	return *c.AutoGenMetadata
 }
 
 // Path returns the config file path.

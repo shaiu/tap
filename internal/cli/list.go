@@ -84,6 +84,7 @@ func loadScripts() ([]core.Category, error) {
 		IgnoreDirs:        cfg.IgnoreDirs,
 		MaxDepth:          cfg.MaxDepth,
 		RegisteredScripts: registeredPaths,
+		AutoGenMetadata:   cfg.GetAutoGenMetadata(),
 	})
 
 	scripts, err := scanner.Scan(context.Background())

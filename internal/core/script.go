@@ -29,9 +29,10 @@ type Script struct {
 	Examples []Example `yaml:"examples,omitempty"`
 
 	// Runtime (not from YAML)
-	Path   string `yaml:"-"` // Absolute path to script file
-	Shell  string `yaml:"-"` // Detected shell (bash, python, etc.)
-	Source string `yaml:"-"` // "scanned" or "registered"
+	Path    string `yaml:"-"` // Absolute path to script file
+	Shell   string `yaml:"-"` // Detected shell (bash, python, etc.)
+	Source  string `yaml:"-"` // "scanned" or "registered"
+	AutoGen bool   `yaml:"-"` // true if metadata was auto-generated
 }
 
 // Parameter represents a script parameter definition.

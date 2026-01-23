@@ -33,6 +33,10 @@ type ScannerConfig struct {
 
 	// Explicitly registered scripts (always included)
 	RegisteredScripts []string
+
+	// AutoGenMetadata enables auto-generation of metadata for scripts without YAML front matter
+	// (default: true)
+	AutoGenMetadata bool
 }
 
 // Scanner discovers scripts from configured sources.
@@ -61,6 +65,9 @@ func NewScanner(config ScannerConfig) *DefaultScanner {
 	if config.MaxDepth == 0 {
 		config.MaxDepth = DefaultMaxDepth
 	}
+	// AutoGenMetadata defaults to true (we need a way to detect if it was explicitly set to false)
+	// Since we can't distinguish between unset and false, we default to true here
+	// and require explicit disabling via config
 
 	return &DefaultScanner{config: config}
 }
@@ -159,9 +166,16 @@ func (s *DefaultScanner) ScanDirectory(ctx context.Context, root string) ([]Scri
 		}
 
 		// Try to parse metadata
-		script, err := ParseScript(path)
-		if err != nil || script == nil {
-			return nil // Skip scripts without valid metadata
+		script, parseErr := ParseScript(path)
+		if parseErr != nil {
+			return nil // Invalid YAML - skip
+		}
+		if script == nil {
+			// No metadata found - auto-generate if enabled
+			if !s.config.AutoGenMetadata {
+				return nil // Skip when disabled
+			}
+			script = GenerateMetadata(path, root)
 		}
 
 		script.Source = "scanned"
