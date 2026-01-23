@@ -1,7 +1,7 @@
 # tap Implementation Plan
 
 > Last updated: 2026-01-23
-> Status: Phase 1 - Foundation
+> Status: Phase 3 - Complete
 
 ## Phase 1: Foundation (MVP)
 
@@ -171,7 +171,10 @@ _(in progress)_
   - Supports --recursive/-r for adding all scripts in a directory
   - Validates scripts have proper YAML metadata before registering
   - Added comprehensive tests in add_test.go
-- [ ] `tap remove <script>` unregistration ← CURRENT
+- [x] `tap remove <script>` unregistration ← DONE
+  - Added internal/cli/remove.go with removeCmd
+  - Supports removal by path (absolute or relative) or alias
+  - Added comprehensive tests in remove_test.go
 - [x] Script templates (bash.tmpl, python.tmpl) ← (included in tap new)
 
 ---
