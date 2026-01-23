@@ -177,6 +177,98 @@ _(in progress)_
   - Added comprehensive tests in remove_test.go
 - [x] Script templates (bash.tmpl, python.tmpl) ← (included in tap new)
 
+## Phase 4: Superfile-Inspired UI Refactor 🎨
+
+> Reference: specs/08-ui-design.md
+
+### Theme & Colors
+- [x] Create theme system with Catppuccin Mocha palette
+  - internal/tui/theme.go: Color definitions
+  - Background #1e1e2e, Primary #89b4fa, etc.
+  - Support for future theme switching
+
+- [ ] Refactor styles to use theme colors ← CURRENT
+  - internal/tui/styles.go: Update all lipgloss styles
+  - Panel styles with rounded borders
+  - Active/inactive border states (#b4befe vs #6c7086)
+  - Selection highlighting with background
+
+### Icons & Visual Polish
+- [ ] Add Nerd Font icons
+  - internal/tui/icons.go: Icon definitions
+  - 󰉋 categories,  scripts,  bash,  python
+  - Graceful fallback if Nerd Fonts not available
+
+- [ ] Update list item rendering
+  - 2-line format: name (bold) + description (dimmed)
+  - Icon prefix based on script type
+  - Selection indicator (● or highlight bar)
+
+### 3-Panel Layout
+- [ ] Implement responsive 3-panel layout
+  - Sidebar (categories) | Main (scripts) | Details (info)
+  - Tab to switch between panels
+  - Active panel border highlighting
+
+- [ ] Refactor sidebar panel
+  - Category list with icons and counts
+  - "All Scripts" option at top
+  - Pinned scripts section with separator
+  - Spec: specs/08-ui-design.md#sidebar-panel
+
+- [ ] Refactor scripts panel
+  - 2-line item display (name + description)
+  - Improved selection styling
+  - Filter bar integration
+  - Match count during filtering
+  - Spec: specs/08-ui-design.md#scripts-panel
+
+- [ ] Implement details panel (NEW)
+  - Script name with icon
+  - Full description (text wrapped)
+  - Metadata: category, shell, path
+  - Parameters list with types/defaults
+  - Spec: specs/08-ui-design.md#details-panel
+
+### Footer & Help
+- [ ] Refactor footer bar
+  - Single-line format
+  - Key (highlighted) + action (dimmed) pairs
+  - Context-aware hints based on state
+  - Spec: specs/08-ui-design.md#footer-bar
+
+- [ ] Improve help overlay
+  - Categorized keybinding sections
+  - Styled with theme colors
+  - ? to toggle
+
+### Filter Improvements
+- [ ] Enhance filter overlay
+  - Overlay box styling (superfile-style)
+  - Real-time match highlighting
+  - Non-matching items dimmed (not hidden)
+  - Match count [3/12] display
+
+### Responsive Design
+- [ ] Implement width breakpoints
+  - ≥120 cols: 3 panels
+  - 80-119 cols: 2 panels (no details)
+  - <80 cols: 1 panel (scripts only)
+  - Handle tea.WindowSizeMsg properly
+
+### Final Polish
+- [ ] Add loading state with spinner
+  - "Scanning scripts..." message
+  - Centered spinner animation
+
+- [ ] Visual feedback for actions
+  - Brief highlight on script run
+  - Error display in footer
+
+- [ ] Test on various terminal sizes
+  - Verify responsive breakpoints
+  - Check color rendering in different terminals
+
 ---
 
 ## Discovered Issues
