@@ -13,6 +13,7 @@ var Styles = struct {
 	Title       lipgloss.Style
 	Error       lipgloss.Style
 	FilterInput lipgloss.Style
+	Required    lipgloss.Style
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
@@ -47,4 +48,7 @@ var Styles = struct {
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("241")).
 		Padding(0, 1),
+
+	Required: lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")), // Red
 }

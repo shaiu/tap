@@ -18,6 +18,7 @@ func TestViewState_String(t *testing.T) {
 		{StateScriptList, "script-list"},
 		{StateFilter, "filter"},
 		{StateHelp, "help"},
+		{StateForm, "form"},
 		{ViewState(99), "unknown"},
 	}
 

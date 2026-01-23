@@ -18,6 +18,7 @@ const (
 	StateScriptList
 	StateFilter
 	StateHelp
+	StateForm
 )
 
 // String returns a human-readable name for the view state.
@@ -33,6 +34,8 @@ func (s ViewState) String() string {
 		return "filter"
 	case StateHelp:
 		return "help"
+	case StateForm:
+		return "form"
 	default:
 		return "unknown"
 	}
@@ -68,12 +71,16 @@ type AppModel struct {
 	// Menu
 	menu MenuModel
 
+	// Form (for parameter input)
+	formModel FormModel
+
 	// Filter
 	filterInput textinput.Model
 
 	// Selection
-	selectedCatIdx int
-	selectedScript *core.Script
+	selectedCatIdx   int
+	selectedScript   *core.Script
+	selectedParams   map[string]string // Parameters from form submission
 
 	// Dimensions
 	width  int
@@ -126,6 +133,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.menu.SetSize(msg.Width, msg.Height)
+		if m.state == StateForm {
+			model, cmd := m.formModel.Update(msg)
+			if fm, ok := model.(FormModel); ok {
+				m.formModel = fm
+			}
+			return m, cmd
+		}
 		return m, nil
 
 	case ScriptsLoadedMsg:
@@ -137,8 +151,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ScriptSelectedMsg:
+		if len(msg.Script.Parameters) > 0 {
+			// Script has params - show form
+			m.state = StateForm
+			m.formModel = NewFormModel(msg.Script, m.width, m.height)
+			return m, m.formModel.Init()
+		}
+		// No params - execute directly
 		m.selectedScript = &msg.Script
 		return m, tea.Quit
+
+	case FormSubmittedMsg:
+		// Form completed - execute with parameters
+		m.selectedScript = &msg.Script
+		m.selectedParams = msg.Parameters
+		return m, tea.Quit
+
+	case FormCancelledMsg:
+		// Return to script list
+		m.state = StateScriptList
+		return m, nil
 
 	case ErrorMsg:
 		m.err = msg.Err
@@ -177,9 +209,22 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateFilter(msg)
 	case StateHelp:
 		return m.updateHelp(msg)
+	case StateForm:
+		return m.updateForm(msg)
 	}
 
 	return m, nil
+}
+
+// updateForm handles input in the form state.
+func (m AppModel) updateForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Delegate to form model
+	var cmd tea.Cmd
+	model, cmd := m.formModel.Update(msg)
+	if fm, ok := model.(FormModel); ok {
+		m.formModel = fm
+	}
+	return m, cmd
 }
 
 // updateCategoryList handles input in the category list state.
@@ -281,6 +326,8 @@ func (m AppModel) View() string {
 		return m.renderHelp()
 	case StateFilter:
 		return m.renderFilterView()
+	case StateForm:
+		return m.formModel.View()
 	default:
 		// CategoryList, ScriptList views are rendered by MenuModel
 		return m.menu.View()
@@ -356,6 +403,11 @@ func (m AppModel) Categories() []core.Category {
 // SelectedScript returns the selected script, if any.
 func (m AppModel) SelectedScript() *core.Script {
 	return m.selectedScript
+}
+
+// SelectedParams returns the parameters from form submission, if any.
+func (m AppModel) SelectedParams() map[string]string {
+	return m.selectedParams
 }
 
 // SetCategories updates the categories (for testing).

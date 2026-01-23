@@ -123,8 +123,12 @@ _(in progress)_
 - [x] Parameter parsing in metadata ← DONE
   - Added validateParameters() function to parser.go
   - Validates: name identifiers, type values, short flag length, duplicate names/shorts, default in choices
-- [ ] TUI parameter form (huh library) ← CURRENT
-- [ ] `tap run <script>` command
+- [x] TUI parameter form (huh library) ← DONE
+  - Added internal/tui/form.go with FormModel using huh library
+  - Supports string, int, float, bool params and choices
+  - Integrated StateForm into app.go with form messages
+  - Added Required style and comprehensive tests
+- [ ] `tap run <script>` command ← CURRENT
 - [ ] --param flag handling
 - [ ] Parameter validation
 
