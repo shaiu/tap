@@ -72,11 +72,20 @@ func (d CategoryDelegate) Render(w io.Writer, m list.Model, index int, item list
 		return
 	}
 
+	// Build category display with icon and count
+	icon := Icons.Category
+	name := cat.Title()
+	count := len(cat.Category.Scripts)
+
 	var str string
 	if index == m.Index() {
-		str = Styles.Selected.Render(fmt.Sprintf("> %s (%d)", cat.Title(), len(cat.Category.Scripts)))
+		// Selected: ● icon name (count)
+		str = Styles.ItemSelected.Render(fmt.Sprintf("● %s %s (%d)", icon, name, count))
 	} else {
-		str = fmt.Sprintf("  %s (%d)", cat.Title(), len(cat.Category.Scripts))
+		// Normal: icon name (count) with dimmed count
+		nameStr := Styles.Item.Render(fmt.Sprintf("  %s %s ", icon, name))
+		countStr := Styles.ItemDesc.Render(fmt.Sprintf("(%d)", count))
+		str = nameStr + countStr
 	}
 	fmt.Fprint(w, str)
 }
@@ -102,18 +111,24 @@ func (d ScriptDelegate) Render(w io.Writer, m list.Model, index int, item list.I
 
 	var s strings.Builder
 
-	// Title line
-	title := script.Title()
+	// Get shell-specific icon
+	icon := IconForShell(script.Script.Shell)
+
+	// Title line with icon prefix
+	name := script.Title()
 	if index == m.Index() {
-		title = Styles.Selected.Render("> " + title)
+		// Selected: ● icon name (bold, highlighted)
+		title := Styles.ItemSelected.Render(fmt.Sprintf("● %s %s", icon, name))
+		s.WriteString(title)
 	} else {
-		title = "  " + title
+		// Normal: icon name
+		title := Styles.Item.Render(fmt.Sprintf("  %s %s", icon, name))
+		s.WriteString(title)
 	}
-	s.WriteString(title)
 	s.WriteString("\n")
 
-	// Description line (indented)
-	desc := Styles.Dimmed.Render("    " + script.Description())
+	// Description line (indented to align with name)
+	desc := Styles.ItemDesc.Render("      " + script.Description())
 	s.WriteString(desc)
 
 	fmt.Fprint(w, s.String())

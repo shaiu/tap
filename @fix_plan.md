@@ -203,13 +203,13 @@ _(in progress)_
   - IconForShell() helper for shell-specific icons
   - Comprehensive tests in icons_test.go
 
-- [ ] Update list item rendering ← CURRENT
+- [x] Update list item rendering ← DONE
   - 2-line format: name (bold) + description (dimmed)
-  - Icon prefix based on script type
-  - Selection indicator (● or highlight bar)
+  - Icon prefix based on script type (IconForShell)
+  - Selection indicator (●) for both categories and scripts
 
 ### 3-Panel Layout
-- [ ] Implement responsive 3-panel layout
+- [ ] Implement responsive 3-panel layout ← CURRENT
   - Sidebar (categories) | Main (scripts) | Details (info)
   - Tab to switch between panels
   - Active panel border highlighting
