@@ -10,26 +10,38 @@ import (
 	"github.com/shaiungar/tap/internal/core"
 )
 
-// SidebarItem represents an item in the sidebar (category or special entry).
+// SidebarItemType indicates the type of sidebar item.
+type SidebarItemType int
+
+const (
+	SidebarItemAllScripts SidebarItemType = iota
+	SidebarItemCategory
+	SidebarItemPinnedHeader
+	SidebarItemPinnedScript
+)
+
+// SidebarItem represents an item in the sidebar (category, pinned script, or special entry).
 type SidebarItem struct {
-	Name        string
-	Count       int
-	IsAllScripts bool
-	Category    *core.Category
+	Name     string
+	Count    int
+	Type     SidebarItemType
+	Category *core.Category
+	Script   *core.Script // For pinned scripts
 }
 
 // SidebarModel handles the category sidebar panel.
 type SidebarModel struct {
-	items    []SidebarItem
-	cursor   int
-	focused  bool
-	width    int
-	height   int
+	items         []SidebarItem
+	cursor        int
+	focused       bool
+	width         int
+	height        int
+	pinnedScripts []core.Script
 }
 
 // NewSidebarModel creates a new SidebarModel with the given categories.
 func NewSidebarModel(categories []core.Category) SidebarModel {
-	items := buildSidebarItems(categories)
+	items := buildSidebarItems(categories, nil)
 	return SidebarModel{
 		items:   items,
 		cursor:  0,
@@ -37,21 +49,37 @@ func NewSidebarModel(categories []core.Category) SidebarModel {
 	}
 }
 
-// buildSidebarItems creates sidebar items from categories.
-func buildSidebarItems(categories []core.Category) []SidebarItem {
+// NewSidebarModelWithPinned creates a new SidebarModel with categories and pinned scripts.
+func NewSidebarModelWithPinned(categories []core.Category, pinnedScripts []core.Script) SidebarModel {
+	items := buildSidebarItems(categories, pinnedScripts)
+	return SidebarModel{
+		items:         items,
+		cursor:        0,
+		focused:       true,
+		pinnedScripts: pinnedScripts,
+	}
+}
+
+// buildSidebarItems creates sidebar items from categories and pinned scripts.
+func buildSidebarItems(categories []core.Category, pinnedScripts []core.Script) []SidebarItem {
 	// Count total scripts
 	totalScripts := 0
 	for _, cat := range categories {
 		totalScripts += len(cat.Scripts)
 	}
 
-	items := make([]SidebarItem, 0, len(categories)+1)
+	// Estimate capacity: all scripts + categories + pinned header + pinned scripts
+	capacity := len(categories) + 1
+	if len(pinnedScripts) > 0 {
+		capacity += 1 + len(pinnedScripts) // header + scripts
+	}
+	items := make([]SidebarItem, 0, capacity)
 
 	// Add "All Scripts" at the top
 	items = append(items, SidebarItem{
-		Name:         "All Scripts",
-		Count:        totalScripts,
-		IsAllScripts: true,
+		Name:  "All Scripts",
+		Count: totalScripts,
+		Type:  SidebarItemAllScripts,
 	})
 
 	// Add categories
@@ -59,8 +87,28 @@ func buildSidebarItems(categories []core.Category) []SidebarItem {
 		items = append(items, SidebarItem{
 			Name:     categories[i].Name,
 			Count:    len(categories[i].Scripts),
+			Type:     SidebarItemCategory,
 			Category: &categories[i],
 		})
+	}
+
+	// Add pinned scripts section if there are any
+	if len(pinnedScripts) > 0 {
+		// Add pinned header (non-selectable visual separator)
+		items = append(items, SidebarItem{
+			Name:  "Pinned",
+			Count: len(pinnedScripts),
+			Type:  SidebarItemPinnedHeader,
+		})
+
+		// Add pinned scripts
+		for i := range pinnedScripts {
+			items = append(items, SidebarItem{
+				Name:   pinnedScripts[i].Name,
+				Type:   SidebarItemPinnedScript,
+				Script: &pinnedScripts[i],
+			})
+		}
 	}
 
 	return items
@@ -83,10 +131,26 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 		case key.Matches(msg, DefaultKeyMap().Up):
 			if m.cursor > 0 {
 				m.cursor--
+				// Skip the pinned header (not selectable)
+				if m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].Type == SidebarItemPinnedHeader {
+					if m.cursor > 0 {
+						m.cursor--
+					} else {
+						m.cursor++ // Can't go up, revert
+					}
+				}
 			}
 		case key.Matches(msg, DefaultKeyMap().Down):
 			if m.cursor < len(m.items)-1 {
 				m.cursor++
+				// Skip the pinned header (not selectable)
+				if m.cursor < len(m.items) && m.items[m.cursor].Type == SidebarItemPinnedHeader {
+					if m.cursor < len(m.items)-1 {
+						m.cursor++
+					} else {
+						m.cursor-- // Can't go down, revert
+					}
+				}
 			}
 		}
 	}
@@ -145,8 +209,31 @@ func (m SidebarModel) View() string {
 
 // renderItem renders a single sidebar item.
 func (m SidebarModel) renderItem(item SidebarItem, selected bool) string {
+	// Handle pinned header specially (with separator)
+	if item.Type == SidebarItemPinnedHeader {
+		// Calculate separator width based on available space
+		separatorWidth := m.width - 6 // Account for border and padding
+		if separatorWidth < 5 {
+			separatorWidth = 5
+		}
+		separator := strings.Repeat("─", separatorWidth)
+		headerLine := fmt.Sprintf("  %s %s", Icons.Pin, item.Name)
+
+		// Separator + newline + header
+		return Styles.ItemDesc.Render(separator) + "\n" + Styles.Item.Render(headerLine)
+	}
+
+	// Handle pinned scripts (no count, indented)
+	if item.Type == SidebarItemPinnedScript {
+		if selected {
+			return Styles.ItemSelected.Render(fmt.Sprintf("●     %s", item.Name))
+		}
+		return Styles.Item.Render(fmt.Sprintf("      %s", item.Name))
+	}
+
+	// Regular items (All Scripts, Categories)
 	icon := Icons.Category
-	if item.IsAllScripts {
+	if item.Type == SidebarItemAllScripts {
 		icon = Icons.Script
 	}
 
@@ -180,15 +267,45 @@ func (m *SidebarModel) SetSize(width, height int) {
 	m.height = height
 }
 
-// SetCategories updates the categories.
+// SetCategories updates the categories while preserving pinned scripts.
 func (m *SidebarModel) SetCategories(categories []core.Category) {
-	m.items = buildSidebarItems(categories)
+	m.items = buildSidebarItems(categories, m.pinnedScripts)
 	if m.cursor >= len(m.items) {
 		m.cursor = len(m.items) - 1
 	}
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+}
+
+// SetPinnedScripts updates the pinned scripts.
+func (m *SidebarModel) SetPinnedScripts(scripts []core.Script) {
+	m.pinnedScripts = scripts
+	// Rebuild items with current categories (extracted from existing items)
+	categories := m.extractCategories()
+	m.items = buildSidebarItems(categories, scripts)
+	if m.cursor >= len(m.items) {
+		m.cursor = len(m.items) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
+
+// extractCategories extracts categories from existing sidebar items.
+func (m SidebarModel) extractCategories() []core.Category {
+	var categories []core.Category
+	for _, item := range m.items {
+		if item.Type == SidebarItemCategory && item.Category != nil {
+			categories = append(categories, *item.Category)
+		}
+	}
+	return categories
+}
+
+// PinnedScripts returns the current pinned scripts.
+func (m SidebarModel) PinnedScripts() []core.Script {
+	return m.pinnedScripts
 }
 
 // SelectedItem returns the currently selected item.
@@ -210,9 +327,27 @@ func (m SidebarModel) SelectedCategory() *core.Category {
 // IsAllScriptsSelected returns true if "All Scripts" is selected.
 func (m SidebarModel) IsAllScriptsSelected() bool {
 	if m.cursor >= 0 && m.cursor < len(m.items) {
-		return m.items[m.cursor].IsAllScripts
+		return m.items[m.cursor].Type == SidebarItemAllScripts
 	}
 	return false
+}
+
+// IsPinnedScriptSelected returns true if a pinned script is selected.
+func (m SidebarModel) IsPinnedScriptSelected() bool {
+	if m.cursor >= 0 && m.cursor < len(m.items) {
+		return m.items[m.cursor].Type == SidebarItemPinnedScript
+	}
+	return false
+}
+
+// SelectedPinnedScript returns the selected pinned script, or nil if none is selected.
+func (m SidebarModel) SelectedPinnedScript() *core.Script {
+	if m.cursor >= 0 && m.cursor < len(m.items) {
+		if m.items[m.cursor].Type == SidebarItemPinnedScript {
+			return m.items[m.cursor].Script
+		}
+	}
+	return nil
 }
 
 // Cursor returns the current cursor position.
@@ -238,7 +373,7 @@ func (m SidebarModel) Height() int {
 // RenderCompact renders a compact version for narrow terminals.
 func (m SidebarModel) RenderCompact() string {
 	selected := m.SelectedItem()
-	if selected.IsAllScripts {
+	if selected.Type == SidebarItemAllScripts {
 		return lipgloss.NewStyle().
 			Foreground(Theme.Primary).
 			Bold(true).

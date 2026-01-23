@@ -34,8 +34,9 @@ type Config struct {
 
 // TUIConfig holds TUI-specific settings.
 type TUIConfig struct {
-	ShowPaths bool   `yaml:"show_paths"`
-	Theme     string `yaml:"theme"`
+	ShowPaths     bool     `yaml:"show_paths"`
+	Theme         string   `yaml:"theme"`
+	PinnedScripts []string `yaml:"pinned_scripts,omitempty"` // Paths to pinned scripts
 }
 
 // Registry holds explicitly registered scripts.
@@ -473,6 +474,8 @@ max_depth: 10
 tui:
   show_paths: false
   theme: default
+  # pinned_scripts:
+  #   - ~/scripts/my-favorite.sh
 
 # Default shell for new scripts (tap new)
 default_shell: bash

@@ -218,13 +218,17 @@ _(in progress)_
   - Updated AppModel state machine to use StateBrowsing for 3-panel mode
   - Updated all tests to use new StateBrowsing state
 
-- [ ] Refactor sidebar panel ← CURRENT
+- [x] Refactor sidebar panel ← DONE
   - Category list with icons and counts
   - "All Scripts" option at top
   - Pinned scripts section with separator
+  - Added SidebarItemType enum for item classification
+  - Added pinned scripts support with visual separator
+  - Navigation skips pinned header (non-selectable)
+  - Added sidebar_test.go with comprehensive tests
   - Spec: specs/08-ui-design.md#sidebar-panel
 
-- [ ] Refactor scripts panel
+- [ ] Refactor scripts panel ← CURRENT
   - 2-line item display (name + description)
   - Improved selection styling
   - Filter bar integration
