@@ -118,7 +118,7 @@
 ---
 
 ## Phase 2: Parameters & Headless
-_(in progress)_
+_(completed)_
 
 - [x] Parameter parsing in metadata ← DONE
   - Added validateParameters() function to parser.go
@@ -138,14 +138,26 @@ _(in progress)_
   - Added comprehensive tests in run_test.go
 - [x] --param flag handling ← (included in tap run)
 - [x] Parameter validation ← (included in tap run)
-- [ ] Integration tests for run command ← CURRENT
+- [x] Integration tests for run command ← DONE
+  - Added testdata/e2e/demo/with-params.sh script with 4 parameters
+  - Added 12 integration tests covering:
+    - Basic run command flow (find script, execute)
+    - Run with params (inline and flag)
+    - Param merge priority (inline > flag)
+    - Missing required param validation
+    - Invalid param type validation
+    - Invalid choice validation
+    - Default value application
+    - Interactive param detection
+    - Full execution with all params
+    - Script not found error
 
 ---
 
-## Phase 3: Script Management  
-_(not started - complete Phase 2 first)_
+## Phase 3: Script Management
+_(in progress)_
 
-- [ ] `tap new` interactive scaffolding
+- [ ] `tap new` interactive scaffolding ← CURRENT
 - [ ] `tap add <path>` registration
 - [ ] `tap remove <script>` unregistration
 - [ ] Script templates (bash.tmpl, python.tmpl)
