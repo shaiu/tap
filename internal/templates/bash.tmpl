@@ -1,0 +1,42 @@
+#!/bin/bash
+# ---
+# name: {{.Name}}
+# description: {{.Description}}
+{{- if .Category}}
+# category: {{.Category}}
+{{- end}}
+{{- if .Parameters}}
+# parameters:
+{{- range .Parameters}}
+#   - name: {{.Name}}
+#     type: {{.Type}}
+{{- if .Required}}
+#     required: true
+{{- end}}
+{{- if .Default}}
+#     default: {{.Default}}
+{{- end}}
+{{- if .Description}}
+#     description: {{.Description}}
+{{- end}}
+{{- end}}
+{{- end}}
+# ---
+
+set -euo pipefail
+
+{{- if .ParamEnvVars}}
+
+# Access parameters via environment variables:
+{{- range .ParamEnvVars}}
+#   ${{.}}
+{{- end}}
+{{- end}}
+
+main() {
+    echo "Running {{.Name}}"
+
+    # Your implementation here
+}
+
+main "$@"

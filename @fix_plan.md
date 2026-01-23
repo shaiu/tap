@@ -1,6 +1,6 @@
 # tap Implementation Plan
 
-> Last updated: 2026-01-19
+> Last updated: 2026-01-23
 > Status: Phase 1 - Foundation
 
 ## Phase 1: Foundation (MVP)
@@ -157,10 +157,17 @@ _(completed)_
 ## Phase 3: Script Management
 _(in progress)_
 
-- [ ] `tap new` interactive scaffolding ← CURRENT
-- [ ] `tap add <path>` registration
+- [x] `tap new` interactive scaffolding ← DONE
+  - Added internal/cli/new.go with NewScriptConfig, ParameterConfig, TemplateData structs
+  - Interactive mode using huh forms for name, description, category, shell, parameters
+  - Headless mode with flags: -d description, -c category, -o output, --shell, -p params
+  - Parameter wizard for interactive parameter creation
+  - Template-based script generation with embedded templates
+  - Created internal/templates/templates.go with embedded bash.tmpl and python.tmpl
+  - Comprehensive tests in new_test.go (validation, parsing, generation)
+- [ ] `tap add <path>` registration ← CURRENT
 - [ ] `tap remove <script>` unregistration
-- [ ] Script templates (bash.tmpl, python.tmpl)
+- [x] Script templates (bash.tmpl, python.tmpl) ← (included in tap new)
 
 ---
 

@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""
+---
+name: {{.Name}}
+description: {{.Description}}
+{{- if .Category}}
+category: {{.Category}}
+{{- end}}
+{{- if .Parameters}}
+parameters:
+{{- range .Parameters}}
+  - name: {{.Name}}
+    type: {{.Type}}
+{{- if .Required}}
+    required: true
+{{- end}}
+{{- if .Default}}
+    default: {{.Default}}
+{{- end}}
+{{- if .Description}}
+    description: {{.Description}}
+{{- end}}
+{{- end}}
+{{- end}}
+---
+"""
+
+import os
+import sys
+
+{{- if .ParamEnvVars}}
+
+# Access parameters via environment variables:
+{{- range .ParamEnvVars}}
+# {{.}} = os.environ.get("{{.}}")
+{{- end}}
+{{- end}}
+
+
+def main():
+    print(f"Running {{.Name}}")
+
+    # Your implementation here
+
+
+if __name__ == "__main__":
+    main()
