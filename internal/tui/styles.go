@@ -4,7 +4,9 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 // Styles holds all the lipgloss styles used in the TUI.
+// All styles use the Theme colors for consistent Catppuccin Mocha styling.
 var Styles = struct {
+	// Existing styles (updated to use Theme)
 	Header      lipgloss.Style
 	Footer      lipgloss.Style
 	Help        lipgloss.Style
@@ -14,41 +16,92 @@ var Styles = struct {
 	Error       lipgloss.Style
 	FilterInput lipgloss.Style
 	Required    lipgloss.Style
+
+	// Panel styles (new)
+	Panel       lipgloss.Style
+	PanelActive lipgloss.Style
+
+	// List item styles (new)
+	Item         lipgloss.Style
+	ItemSelected lipgloss.Style
+	ItemDesc     lipgloss.Style
+
+	// Footer hint styles (new)
+	Key    lipgloss.Style
+	Action lipgloss.Style
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("212")).
+		Foreground(Theme.Primary).
 		MarginBottom(1),
 
 	Footer: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1),
+		Foreground(Theme.Subtle).
+		Border(lipgloss.NormalBorder(), true, false, false, false).
+		BorderForeground(Theme.Border).
+		Padding(0, 1),
 
 	Help: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244")).
+		Foreground(Theme.Subtle).
 		Padding(1, 2),
 
 	Selected: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("212")).
+		Foreground(Theme.Primary).
 		Bold(true),
 
 	Dimmed: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")),
+		Foreground(Theme.Subtle),
 
 	Title: lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("212")),
+		Foreground(Theme.Primary).
+		Padding(0, 1),
 
 	Error: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("196")).
+		Foreground(Theme.Error).
 		Bold(true),
 
 	FilterInput: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("212")).
+		Foreground(Theme.Primary).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("241")).
+		BorderForeground(Theme.Border).
 		Padding(0, 1),
 
 	Required: lipgloss.NewStyle().
-		Foreground(lipgloss.Color("196")), // Red
+		Foreground(Theme.Error),
+
+	// Panel with rounded border (inactive)
+	Panel: lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Theme.Border).
+		Padding(0, 1),
+
+	// Panel with active (focused) border
+	PanelActive: lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Theme.BorderActive).
+		Padding(0, 1),
+
+	// Normal list item
+	Item: lipgloss.NewStyle().
+		Foreground(Theme.Foreground),
+
+	// Selected list item (cursor on it)
+	ItemSelected: lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Background(Theme.Selection).
+		Bold(true),
+
+	// Item description (secondary text)
+	ItemDesc: lipgloss.NewStyle().
+		Foreground(Theme.Subtle),
+
+	// Key hint in footer (highlighted)
+	Key: lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true),
+
+	// Action text in footer
+	Action: lipgloss.NewStyle().
+		Foreground(Theme.Foreground),
 }

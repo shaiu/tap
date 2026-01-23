@@ -187,14 +187,16 @@ _(in progress)_
   - Background #1e1e2e, Primary #89b4fa, etc.
   - Support for future theme switching
 
-- [ ] Refactor styles to use theme colors ← CURRENT
-  - internal/tui/styles.go: Update all lipgloss styles
-  - Panel styles with rounded borders
-  - Active/inactive border states (#b4befe vs #6c7086)
-  - Selection highlighting with background
+- [x] Refactor styles to use theme colors ← DONE
+  - internal/tui/styles.go: Updated all lipgloss styles to use Theme colors
+  - Added Panel/PanelActive styles with rounded borders
+  - Active border (#b4befe) vs inactive (#6c7086)
+  - Added Item/ItemSelected/ItemDesc for list styling
+  - Added Key/Action for footer hints
+  - Added styles_test.go with comprehensive tests
 
 ### Icons & Visual Polish
-- [ ] Add Nerd Font icons
+- [ ] Add Nerd Font icons ← CURRENT
   - internal/tui/icons.go: Icon definitions
   - 󰉋 categories,  scripts,  bash,  python
   - Graceful fallback if Nerd Fonts not available
