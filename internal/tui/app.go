@@ -1,11 +1,13 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/shaiungar/tap/internal/core"
 )
 
@@ -19,6 +21,25 @@ const (
 	StateFilter
 	StateHelp
 	StateForm
+	StateBrowsing // 3-panel browsing mode
+)
+
+// Panel represents which panel is currently active in 3-panel mode.
+type Panel int
+
+const (
+	PanelSidebar Panel = iota
+	PanelScripts
+	PanelDetails
+)
+
+// LayoutMode represents the responsive layout based on terminal width.
+type LayoutMode int
+
+const (
+	LayoutThreePanel LayoutMode = iota // ≥120 cols
+	LayoutTwoPanel                     // 80-119 cols
+	LayoutOnePanel                     // <80 cols
 )
 
 // String returns a human-readable name for the view state.
@@ -36,6 +57,8 @@ func (s ViewState) String() string {
 		return "help"
 	case StateForm:
 		return "form"
+	case StateBrowsing:
+		return "browsing"
 	default:
 		return "unknown"
 	}
@@ -68,8 +91,15 @@ type AppModel struct {
 	prevState  ViewState // State before filter/help
 	categories []core.Category
 
-	// Menu
+	// Legacy Menu (for backward compatibility)
 	menu MenuModel
+
+	// 3-Panel Layout Components
+	sidebar     SidebarModel
+	scriptsPane ScriptsModel
+	detailsPane DetailsModel
+	activePanel Panel
+	layoutMode  LayoutMode
 
 	// Form (for parameter input)
 	formModel FormModel
@@ -95,13 +125,14 @@ type AppModel struct {
 
 // NewAppModel creates a new AppModel with the given categories.
 func NewAppModel(categories []core.Category) AppModel {
-	state := StateCategoryList
+	state := StateBrowsing
 	if len(categories) == 0 {
 		state = StateLoading
 	}
 
 	// Default dimensions (will be updated on WindowSizeMsg)
 	width, height := 80, 24
+	layoutMode := calculateLayoutMode(width)
 
 	// Create filter input
 	fi := textinput.New()
@@ -109,15 +140,100 @@ func NewAppModel(categories []core.Category) AppModel {
 	fi.CharLimit = 50
 	fi.Width = 30
 
+	// Create 3-panel components
+	sidebar := NewSidebarModel(categories)
+	scriptsPane := NewScriptsModel()
+	detailsPane := NewDetailsModel()
+
+	// Initialize scripts based on sidebar selection
+	if len(categories) > 0 {
+		// Start with "All Scripts" selected
+		scriptsPane.SetAllScripts(categories)
+	}
+
+	// Set initial focus
+	sidebar.SetFocused(true)
+	scriptsPane.SetFocused(false)
+	detailsPane.SetFocused(false)
+
 	return AppModel{
 		state:          state,
 		categories:     categories,
 		menu:           NewMenuModel(categories, width, height),
+		sidebar:        sidebar,
+		scriptsPane:    scriptsPane,
+		detailsPane:    detailsPane,
+		activePanel:    PanelSidebar,
+		layoutMode:     layoutMode,
 		filterInput:    fi,
 		selectedCatIdx: -1,
 		width:          width,
 		height:         height,
 		keys:           DefaultKeyMap(),
+	}
+}
+
+// calculateLayoutMode determines the layout mode based on terminal width.
+func calculateLayoutMode(width int) LayoutMode {
+	if width >= 120 {
+		return LayoutThreePanel
+	}
+	if width >= 80 {
+		return LayoutTwoPanel
+	}
+	return LayoutOnePanel
+}
+
+// updatePanelSizes calculates and sets panel sizes based on layout mode.
+func (m *AppModel) updatePanelSizes() {
+	// Reserve space for footer (2 lines)
+	contentHeight := m.height - 3
+	if contentHeight < 5 {
+		contentHeight = 5
+	}
+
+	switch m.layoutMode {
+	case LayoutThreePanel:
+		// 3-panel: sidebar (22%) | scripts (43%) | details (35%)
+		sidebarWidth := m.width * 22 / 100
+		detailsWidth := m.width * 35 / 100
+		scriptsWidth := m.width - sidebarWidth - detailsWidth - 2 // -2 for gaps
+
+		if sidebarWidth < 20 {
+			sidebarWidth = 20
+		}
+		if detailsWidth < 25 {
+			detailsWidth = 25
+		}
+		if scriptsWidth < 25 {
+			scriptsWidth = m.width - sidebarWidth - detailsWidth - 2
+		}
+
+		m.sidebar.SetSize(sidebarWidth, contentHeight)
+		m.scriptsPane.SetSize(scriptsWidth, contentHeight)
+		m.detailsPane.SetSize(detailsWidth, contentHeight)
+
+	case LayoutTwoPanel:
+		// 2-panel: sidebar (30%) | scripts (70%)
+		sidebarWidth := m.width * 30 / 100
+		scriptsWidth := m.width - sidebarWidth - 1
+
+		if sidebarWidth < 20 {
+			sidebarWidth = 20
+		}
+		if scriptsWidth < 30 {
+			scriptsWidth = m.width - sidebarWidth - 1
+		}
+
+		m.sidebar.SetSize(sidebarWidth, contentHeight)
+		m.scriptsPane.SetSize(scriptsWidth, contentHeight)
+		m.detailsPane.SetSize(0, 0) // Hidden
+
+	case LayoutOnePanel:
+		// 1-panel: scripts only
+		m.sidebar.SetSize(0, 0)      // Hidden
+		m.scriptsPane.SetSize(m.width, contentHeight)
+		m.detailsPane.SetSize(0, 0) // Hidden
 	}
 }
 
@@ -132,7 +248,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.layoutMode = calculateLayoutMode(msg.Width)
 		m.menu.SetSize(msg.Width, msg.Height)
+
+		// Update panel sizes based on layout mode
+		m.updatePanelSizes()
+
 		if m.state == StateForm {
 			model, cmd := m.formModel.Update(msg)
 			if fm, ok := model.(FormModel); ok {
@@ -145,8 +266,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ScriptsLoadedMsg:
 		m.categories = msg.Categories
 		m.menu.SetCategories(msg.Categories)
+		m.sidebar.SetCategories(msg.Categories)
+		// Initialize scripts based on sidebar selection
 		if len(m.categories) > 0 {
-			m.state = StateCategoryList
+			m.scriptsPane.SetAllScripts(m.categories)
+			if script := m.scriptsPane.SelectedScript(); script != nil {
+				m.detailsPane.SetScript(script)
+			}
+			m.state = StateBrowsing
 		}
 		return m, nil
 
@@ -168,8 +295,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case FormCancelledMsg:
-		// Return to script list
-		m.state = StateScriptList
+		// Return to browsing
+		m.state = StateBrowsing
 		return m, nil
 
 	case ErrorMsg:
@@ -201,6 +328,8 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// State-specific handling
 	switch m.state {
+	case StateBrowsing:
+		return m.updateBrowsing(msg)
 	case StateCategoryList:
 		return m.updateCategoryList(msg)
 	case StateScriptList:
@@ -214,6 +343,176 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// updateBrowsing handles input in the 3-panel browsing state.
+func (m AppModel) updateBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle panel switching
+	switch {
+	case key.Matches(msg, m.keys.NextPanel):
+		m.switchToNextPanel()
+		return m, nil
+	case key.Matches(msg, m.keys.PrevPanel):
+		m.switchToPrevPanel()
+		return m, nil
+	case key.Matches(msg, m.keys.Filter):
+		m.prevState = m.state
+		m.state = StateFilter
+		m.filterInput.SetValue("")
+		m.filterInput.Focus()
+		return m, textinput.Blink
+	case key.Matches(msg, m.keys.Refresh):
+		return m, func() tea.Msg { return RefreshMsg{} }
+	case key.Matches(msg, m.keys.Select):
+		// Enter key - handle based on active panel
+		return m.handlePanelSelect()
+	}
+
+	// Route to active panel
+	return m.updateActivePanel(msg)
+}
+
+// switchToNextPanel moves focus to the next panel.
+func (m *AppModel) switchToNextPanel() {
+	m.setAllPanelsUnfocused()
+
+	maxPanel := m.maxPanelForLayout()
+	m.activePanel = Panel((int(m.activePanel) + 1) % (int(maxPanel) + 1))
+
+	m.setActivePanelFocused()
+}
+
+// switchToPrevPanel moves focus to the previous panel.
+func (m *AppModel) switchToPrevPanel() {
+	m.setAllPanelsUnfocused()
+
+	maxPanel := m.maxPanelForLayout()
+	if m.activePanel == PanelSidebar {
+		m.activePanel = maxPanel
+	} else {
+		m.activePanel = Panel(int(m.activePanel) - 1)
+	}
+
+	m.setActivePanelFocused()
+}
+
+// maxPanelForLayout returns the max panel index for the current layout.
+func (m AppModel) maxPanelForLayout() Panel {
+	switch m.layoutMode {
+	case LayoutThreePanel:
+		return PanelDetails
+	case LayoutTwoPanel:
+		return PanelScripts
+	default:
+		return PanelScripts
+	}
+}
+
+// setAllPanelsUnfocused removes focus from all panels.
+func (m *AppModel) setAllPanelsUnfocused() {
+	m.sidebar.SetFocused(false)
+	m.scriptsPane.SetFocused(false)
+	m.detailsPane.SetFocused(false)
+}
+
+// setActivePanelFocused sets focus on the active panel.
+func (m *AppModel) setActivePanelFocused() {
+	switch m.activePanel {
+	case PanelSidebar:
+		m.sidebar.SetFocused(true)
+	case PanelScripts:
+		m.scriptsPane.SetFocused(true)
+	case PanelDetails:
+		m.detailsPane.SetFocused(true)
+	}
+}
+
+// handlePanelSelect handles the enter key based on active panel.
+func (m AppModel) handlePanelSelect() (tea.Model, tea.Cmd) {
+	switch m.activePanel {
+	case PanelSidebar:
+		// Update scripts panel based on sidebar selection
+		if m.sidebar.IsAllScriptsSelected() {
+			m.scriptsPane.SetAllScripts(m.categories)
+		} else if cat := m.sidebar.SelectedCategory(); cat != nil {
+			m.scriptsPane.SetScripts(cat.Scripts)
+		}
+		// Move focus to scripts panel
+		m.setAllPanelsUnfocused()
+		m.activePanel = PanelScripts
+		m.scriptsPane.SetFocused(true)
+		// Update details with first script
+		if script := m.scriptsPane.SelectedScript(); script != nil {
+			m.detailsPane.SetScript(script)
+		}
+		return m, nil
+
+	case PanelScripts:
+		// Run the selected script
+		if script := m.scriptsPane.SelectedScript(); script != nil {
+			if len(script.Parameters) > 0 {
+				// Script has params - show form
+				m.state = StateForm
+				m.formModel = NewFormModel(*script, m.width, m.height)
+				return m, m.formModel.Init()
+			}
+			// No params - execute directly
+			m.selectedScript = script
+			return m, tea.Quit
+		}
+		return m, nil
+
+	case PanelDetails:
+		// In details panel, enter runs the script
+		if script := m.detailsPane.Script(); script != nil {
+			if len(script.Parameters) > 0 {
+				m.state = StateForm
+				m.formModel = NewFormModel(*script, m.width, m.height)
+				return m, m.formModel.Init()
+			}
+			m.selectedScript = script
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+
+	return m, nil
+}
+
+// updateActivePanel routes key messages to the active panel.
+func (m AppModel) updateActivePanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch m.activePanel {
+	case PanelSidebar:
+		m.sidebar, cmd = m.sidebar.Update(msg)
+		// Update scripts when sidebar selection changes
+		if m.sidebar.IsAllScriptsSelected() {
+			m.scriptsPane.SetAllScripts(m.categories)
+		} else if cat := m.sidebar.SelectedCategory(); cat != nil {
+			m.scriptsPane.SetScripts(cat.Scripts)
+		}
+		// Update details panel
+		if script := m.scriptsPane.SelectedScript(); script != nil {
+			m.detailsPane.SetScript(script)
+		} else {
+			m.detailsPane.SetScript(nil)
+		}
+
+	case PanelScripts:
+		m.scriptsPane, cmd = m.scriptsPane.Update(msg)
+		// Update details panel when script selection changes
+		if script := m.scriptsPane.SelectedScript(); script != nil {
+			m.detailsPane.SetScript(script)
+		} else {
+			m.detailsPane.SetScript(nil)
+		}
+
+	case PanelDetails:
+		m.detailsPane, cmd = m.detailsPane.Update(msg)
+	}
+
+	return m, cmd
 }
 
 // updateForm handles input in the form state.
@@ -292,6 +591,7 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.filterInput.Blur()
 		m.filterInput.SetValue("")
 		m.menu.ClearFilter()
+		m.scriptsPane.ClearFilter()
 		m.state = m.prevState
 		return m, nil
 	}
@@ -300,8 +600,9 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
 
-	// Apply filter to menu
+	// Apply filter to menu and scripts pane
 	m.menu.ApplyFilter(m.filterInput.Value())
+	m.scriptsPane.ApplyFilter(m.filterInput.Value())
 
 	return m, cmd
 }
@@ -328,10 +629,91 @@ func (m AppModel) View() string {
 		return m.renderFilterView()
 	case StateForm:
 		return m.formModel.View()
+	case StateBrowsing:
+		return m.renderBrowsingView()
 	default:
-		// CategoryList, ScriptList views are rendered by MenuModel
+		// Legacy: CategoryList, ScriptList views are rendered by MenuModel
 		return m.menu.View()
 	}
+}
+
+// renderBrowsingView renders the 3-panel layout.
+func (m AppModel) renderBrowsingView() string {
+	var s strings.Builder
+
+	// Render panels based on layout mode
+	switch m.layoutMode {
+	case LayoutThreePanel:
+		s.WriteString(m.renderThreePanels())
+	case LayoutTwoPanel:
+		s.WriteString(m.renderTwoPanels())
+	case LayoutOnePanel:
+		s.WriteString(m.renderOnePanel())
+	}
+
+	// Footer
+	s.WriteString("\n")
+	s.WriteString(m.renderBrowsingFooter())
+
+	return s.String()
+}
+
+// renderThreePanels renders the full 3-panel layout.
+func (m AppModel) renderThreePanels() string {
+	sidebarView := m.sidebar.View()
+	scriptsView := m.scriptsPane.View()
+	detailsView := m.detailsPane.View()
+
+	// Join panels horizontally
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, " ", scriptsView, " ", detailsView)
+}
+
+// renderTwoPanels renders the 2-panel layout (sidebar + scripts).
+func (m AppModel) renderTwoPanels() string {
+	sidebarView := m.sidebar.View()
+	scriptsView := m.scriptsPane.View()
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, " ", scriptsView)
+}
+
+// renderOnePanel renders the single-panel layout (scripts only).
+func (m AppModel) renderOnePanel() string {
+	// In 1-panel mode, show a compact category indicator at the top
+	var s strings.Builder
+
+	// Category header
+	catHeader := m.sidebar.RenderCompact()
+	s.WriteString(Styles.Header.Render("tap - " + catHeader))
+	s.WriteString("\n\n")
+
+	// Scripts list
+	s.WriteString(m.scriptsPane.View())
+
+	return s.String()
+}
+
+// renderBrowsingFooter renders the footer for browsing mode.
+func (m AppModel) renderBrowsingFooter() string {
+	var hints []string
+
+	hints = append(hints, m.formatHint("↑↓", "navigate"))
+	hints = append(hints, m.formatHint("enter", "select"))
+
+	// Show tab hint if we have multiple panels
+	if m.layoutMode != LayoutOnePanel {
+		hints = append(hints, m.formatHint("tab", "panel"))
+	}
+
+	hints = append(hints, m.formatHint("/", "filter"))
+	hints = append(hints, m.formatHint("?", "help"))
+	hints = append(hints, m.formatHint("q", "quit"))
+
+	return Styles.Footer.Render(strings.Join(hints, "  "))
+}
+
+// formatHint formats a key hint with styled key and action.
+func (m AppModel) formatHint(key, action string) string {
+	return Styles.Key.Render(key) + " " + Styles.Action.Render(action)
 }
 
 // renderFilterView renders the view with the filter input overlay.
@@ -339,19 +721,28 @@ func (m AppModel) renderFilterView() string {
 	var s strings.Builder
 
 	// Header
-	if m.menu.ShowingScripts() && m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
+	if m.prevState == StateBrowsing {
+		s.WriteString(Styles.Header.Render("tap - Filter Scripts"))
+	} else if m.menu.ShowingScripts() && m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
 		s.WriteString(Styles.Header.Render("tap - " + m.categories[m.selectedCatIdx].Name))
 	} else {
 		s.WriteString(Styles.Header.Render("tap - Script Runner"))
 	}
 	s.WriteString("\n\n")
 
-	// Filter input
-	s.WriteString(Styles.FilterInput.Render("Filter: " + m.filterInput.View()))
+	// Filter input with match count
+	filterText := "Filter: " + m.filterInput.View()
+	if m.prevState == StateBrowsing && m.scriptsPane.FilterQuery() != "" {
+		filterText += Styles.ItemDesc.Render(
+			fmt.Sprintf(" [%d/%d]", m.scriptsPane.ScriptCount(), m.scriptsPane.TotalCount()))
+	}
+	s.WriteString(Styles.FilterInput.Render(filterText))
 	s.WriteString("\n\n")
 
-	// Show filtered list from menu
-	if m.menu.ShowingScripts() {
+	// Show filtered list
+	if m.prevState == StateBrowsing {
+		s.WriteString(m.scriptsPane.View())
+	} else if m.menu.ShowingScripts() {
 		s.WriteString(m.menu.scriptList.View())
 	} else {
 		s.WriteString(m.menu.categoryList.View())
@@ -414,8 +805,15 @@ func (m AppModel) SelectedParams() map[string]string {
 func (m *AppModel) SetCategories(categories []core.Category) {
 	m.categories = categories
 	m.menu.SetCategories(categories)
-	if len(categories) > 0 && m.state == StateLoading {
-		m.state = StateCategoryList
+	m.sidebar.SetCategories(categories)
+	if len(categories) > 0 {
+		m.scriptsPane.SetAllScripts(categories)
+		if script := m.scriptsPane.SelectedScript(); script != nil {
+			m.detailsPane.SetScript(script)
+		}
+		if m.state == StateLoading {
+			m.state = StateBrowsing
+		}
 	}
 }
 

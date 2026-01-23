@@ -10,6 +10,10 @@ type KeyMap struct {
 	Select key.Binding
 	Back   key.Binding
 
+	// Panel switching
+	NextPanel key.Binding
+	PrevPanel key.Binding
+
 	// Actions
 	Filter  key.Binding
 	Refresh key.Binding
@@ -36,6 +40,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("esc", "backspace"),
 			key.WithHelp("esc", "go back"),
 		),
+		NextPanel: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "next panel"),
+		),
+		PrevPanel: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "prev panel"),
+		),
 		Filter: key.NewBinding(
 			key.WithKeys("/"),
 			key.WithHelp("/", "filter"),
@@ -57,13 +69,13 @@ func DefaultKeyMap() KeyMap {
 
 // ShortHelp returns the short help text for key bindings.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Select, k.Back, k.Filter, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Select, k.NextPanel, k.Filter, k.Quit}
 }
 
 // FullHelp returns the full help text for key bindings.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Select, k.Back},
-		{k.Filter, k.Refresh, k.Help, k.Quit},
+		{k.NextPanel, k.PrevPanel, k.Filter, k.Refresh, k.Help, k.Quit},
 	}
 }

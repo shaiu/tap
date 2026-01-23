@@ -425,7 +425,7 @@ func TestAppModel_FormCancelled(t *testing.T) {
 	updated, _ := model.Update(msg)
 	m := updated.(AppModel)
 
-	assert.Equal(t, StateScriptList, m.State())
+	assert.Equal(t, StateBrowsing, m.State())
 }
 
 func TestAppModel_FormSubmitted(t *testing.T) {

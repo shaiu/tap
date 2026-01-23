@@ -50,7 +50,7 @@ func TestIntegration_ScanToTUIToExecution(t *testing.T) {
 
 	// Step 3: Create TUI model
 	model := tui.NewAppModel(categories)
-	assert.Equal(t, tui.StateCategoryList, model.State())
+	assert.Equal(t, tui.StateBrowsing, model.State())
 	assert.Equal(t, len(categories), len(model.Categories()))
 
 	// Step 4: Simulate navigation - find hello-world script
@@ -143,7 +143,7 @@ func TestIntegration_TUINavigation(t *testing.T) {
 
 	// Verify initial state
 	model := m.(tui.AppModel)
-	assert.Equal(t, tui.StateCategoryList, model.State())
+	assert.Equal(t, tui.StateBrowsing, model.State())
 
 	// Simulate window size message
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -159,7 +159,7 @@ func TestIntegration_TUINavigation(t *testing.T) {
 	// Press any key to exit help
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
 	model = m.(tui.AppModel)
-	assert.Equal(t, tui.StateCategoryList, model.State())
+	assert.Equal(t, tui.StateBrowsing, model.State())
 
 	// Test quit returns tea.Quit command
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -195,7 +195,7 @@ func TestIntegration_FilterFunctionality(t *testing.T) {
 	// Cancel filter with Escape
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape})
 	model = m.(tui.AppModel)
-	assert.Equal(t, tui.StateCategoryList, model.State())
+	assert.Equal(t, tui.StateBrowsing, model.State())
 }
 
 // TestIntegration_EnvironmentVariables verifies TAP_* env vars are set

@@ -1,0 +1,266 @@
+package tui
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/shaiungar/tap/internal/core"
+)
+
+// ScriptsModel handles the scripts list panel.
+type ScriptsModel struct {
+	scripts       []core.Script
+	allScripts    []core.Script // All scripts for "All Scripts" view
+	cursor        int
+	focused       bool
+	width         int
+	height        int
+	filterQuery   string
+	filteredList  []core.Script
+}
+
+// NewScriptsModel creates a new ScriptsModel.
+func NewScriptsModel() ScriptsModel {
+	return ScriptsModel{
+		scripts:      []core.Script{},
+		allScripts:   []core.Script{},
+		cursor:       0,
+		focused:      false,
+		filteredList: []core.Script{},
+	}
+}
+
+// Init implements tea.Model.
+func (m ScriptsModel) Init() tea.Cmd {
+	return nil
+}
+
+// Update implements tea.Model.
+func (m ScriptsModel) Update(msg tea.Msg) (ScriptsModel, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, DefaultKeyMap().Up):
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case key.Matches(msg, DefaultKeyMap().Down):
+			list := m.displayList()
+			if m.cursor < len(list)-1 {
+				m.cursor++
+			}
+		}
+	}
+
+	return m, nil
+}
+
+// View renders the scripts panel.
+func (m ScriptsModel) View() string {
+	// Determine panel style based on focus
+	panelStyle := Styles.Panel
+	if m.focused {
+		panelStyle = Styles.PanelActive
+	}
+
+	// Build content
+	var content strings.Builder
+
+	// Title with filter info
+	title := Styles.Title.Render(fmt.Sprintf("%s Scripts", Icons.Script))
+	content.WriteString(title)
+	content.WriteString("\n\n")
+
+	list := m.displayList()
+
+	if len(list) == 0 {
+		content.WriteString(Styles.ItemDesc.Render("  No scripts found"))
+	} else {
+		// Visible height for items (accounting for title, padding, borders)
+		visibleHeight := (m.height - 6) / 3 // Each item takes 3 lines (name, desc, spacing)
+		if visibleHeight < 1 {
+			visibleHeight = 1
+		}
+
+		// Calculate scroll offset to keep cursor visible
+		scrollOffset := 0
+		if m.cursor >= visibleHeight {
+			scrollOffset = m.cursor - visibleHeight + 1
+		}
+
+		// Render visible items
+		for i := scrollOffset; i < len(list) && i < scrollOffset+visibleHeight; i++ {
+			script := list[i]
+			content.WriteString(m.renderItem(script, i == m.cursor))
+			if i < len(list)-1 && i < scrollOffset+visibleHeight-1 {
+				content.WriteString("\n\n")
+			}
+		}
+	}
+
+	// Apply panel style
+	return panelStyle.
+		Width(m.width).
+		Height(m.height).
+		Render(content.String())
+}
+
+// renderItem renders a single script item (2-line format).
+func (m ScriptsModel) renderItem(script core.Script, selected bool) string {
+	var s strings.Builder
+
+	// Get shell-specific icon
+	icon := IconForShell(script.Shell)
+
+	// Title line with icon
+	if selected {
+		s.WriteString(Styles.ItemSelected.Render(fmt.Sprintf("● %s %s", icon, script.Name)))
+	} else {
+		s.WriteString(Styles.Item.Render(fmt.Sprintf("  %s %s", icon, script.Name)))
+	}
+	s.WriteString("\n")
+
+	// Description line (indented)
+	desc := script.Description
+	if desc == "" {
+		desc = "No description"
+	}
+	// Truncate description if too long
+	maxDescLen := m.width - 10
+	if maxDescLen < 20 {
+		maxDescLen = 20
+	}
+	if len(desc) > maxDescLen {
+		desc = desc[:maxDescLen-3] + "..."
+	}
+	s.WriteString(Styles.ItemDesc.Render("      " + desc))
+
+	return s.String()
+}
+
+// displayList returns the list to display (filtered or full).
+func (m ScriptsModel) displayList() []core.Script {
+	if m.filterQuery != "" && len(m.filteredList) > 0 {
+		return m.filteredList
+	}
+	return m.scripts
+}
+
+// SetFocused sets whether the panel is focused.
+func (m *ScriptsModel) SetFocused(focused bool) {
+	m.focused = focused
+}
+
+// IsFocused returns whether the panel is focused.
+func (m ScriptsModel) IsFocused() bool {
+	return m.focused
+}
+
+// SetSize updates the panel dimensions.
+func (m *ScriptsModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+}
+
+// SetScripts updates the scripts list for a specific category.
+func (m *ScriptsModel) SetScripts(scripts []core.Script) {
+	m.scripts = scripts
+	m.filteredList = nil
+	m.filterQuery = ""
+	if m.cursor >= len(scripts) {
+		m.cursor = len(scripts) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
+
+// SetAllScripts sets all scripts (used when "All Scripts" is selected).
+func (m *ScriptsModel) SetAllScripts(categories []core.Category) {
+	var all []core.Script
+	for _, cat := range categories {
+		all = append(all, cat.Scripts...)
+	}
+	m.allScripts = all
+	m.SetScripts(all)
+}
+
+// ApplyFilter filters the scripts based on the query.
+func (m *ScriptsModel) ApplyFilter(query string) {
+	m.filterQuery = strings.ToLower(strings.TrimSpace(query))
+	if m.filterQuery == "" {
+		m.filteredList = nil
+		return
+	}
+
+	m.filteredList = nil
+	for _, script := range m.scripts {
+		if m.matchesFilter(script) {
+			m.filteredList = append(m.filteredList, script)
+		}
+	}
+
+	// Reset cursor if out of bounds
+	if m.cursor >= len(m.filteredList) {
+		m.cursor = len(m.filteredList) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
+
+// ClearFilter removes the filter.
+func (m *ScriptsModel) ClearFilter() {
+	m.filterQuery = ""
+	m.filteredList = nil
+}
+
+// matchesFilter checks if a script matches the current filter.
+func (m ScriptsModel) matchesFilter(script core.Script) bool {
+	searchText := strings.ToLower(fmt.Sprintf("%s %s %s",
+		script.Name,
+		script.Description,
+		strings.Join(script.Tags, " ")))
+	return strings.Contains(searchText, m.filterQuery)
+}
+
+// SelectedScript returns the currently selected script, or nil if none.
+func (m ScriptsModel) SelectedScript() *core.Script {
+	list := m.displayList()
+	if m.cursor >= 0 && m.cursor < len(list) {
+		script := list[m.cursor]
+		return &script
+	}
+	return nil
+}
+
+// Cursor returns the current cursor position.
+func (m ScriptsModel) Cursor() int {
+	return m.cursor
+}
+
+// ScriptCount returns the number of scripts in the current view.
+func (m ScriptsModel) ScriptCount() int {
+	return len(m.displayList())
+}
+
+// TotalCount returns the total number of scripts (before filtering).
+func (m ScriptsModel) TotalCount() int {
+	return len(m.scripts)
+}
+
+// FilterQuery returns the current filter query.
+func (m ScriptsModel) FilterQuery() string {
+	return m.filterQuery
+}
+
+// PanelTitle returns the title for this panel.
+func (m ScriptsModel) PanelTitle() string {
+	return "Scripts"
+}

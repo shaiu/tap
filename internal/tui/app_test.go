@@ -19,6 +19,7 @@ func TestViewState_String(t *testing.T) {
 		{StateFilter, "filter"},
 		{StateHelp, "help"},
 		{StateForm, "form"},
+		{StateBrowsing, "browsing"},
 		{ViewState(99), "unknown"},
 	}
 
@@ -41,7 +42,7 @@ func TestNewAppModel_WithCategories(t *testing.T) {
 	}
 
 	model := NewAppModel(categories)
-	assert.Equal(t, StateCategoryList, model.State())
+	assert.Equal(t, StateBrowsing, model.State())
 	assert.Len(t, model.Categories(), 1)
 }
 
@@ -68,7 +69,7 @@ func TestAppModel_ScriptsLoadedMsg(t *testing.T) {
 	updated, _ := model.Update(msg)
 	m := updated.(AppModel)
 
-	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, StateBrowsing, m.State())
 	assert.Len(t, m.Categories(), 1)
 }
 
@@ -87,7 +88,7 @@ func TestAppModel_HelpToggle(t *testing.T) {
 		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
 	}
 	model := NewAppModel(categories)
-	assert.Equal(t, StateCategoryList, model.State())
+	assert.Equal(t, StateBrowsing, model.State())
 
 	// Press ? to open help
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
@@ -99,7 +100,7 @@ func TestAppModel_HelpToggle(t *testing.T) {
 	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
 	updated, _ = m.Update(msg)
 	m = updated.(AppModel)
-	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, StateBrowsing, m.State())
 }
 
 func TestAppModel_QuitKey(t *testing.T) {
@@ -120,7 +121,7 @@ func TestAppModel_FilterKey(t *testing.T) {
 		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
 	}
 	model := NewAppModel(categories)
-	assert.Equal(t, StateCategoryList, model.State())
+	assert.Equal(t, StateBrowsing, model.State())
 
 	// Press / to activate filter
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
@@ -129,21 +130,24 @@ func TestAppModel_FilterKey(t *testing.T) {
 	assert.Equal(t, StateFilter, m.State())
 }
 
-func TestAppModel_BackFromScriptList(t *testing.T) {
+func TestAppModel_PanelSwitching(t *testing.T) {
 	categories := []core.Category{
 		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
 	}
 	model := NewAppModel(categories)
 
-	// Manually set state to script list
-	model.state = StateScriptList
-	model.selectedCatIdx = 0
+	// In browsing mode, sidebar is initially focused
+	assert.Equal(t, StateBrowsing, model.State())
+	assert.Equal(t, PanelSidebar, model.activePanel)
+	assert.True(t, model.sidebar.IsFocused())
 
-	// Press esc to go back
-	msg := tea.KeyMsg{Type: tea.KeyEscape}
+	// Press tab to switch to scripts panel
+	msg := tea.KeyMsg{Type: tea.KeyTab}
 	updated, _ := model.Update(msg)
 	m := updated.(AppModel)
-	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, PanelScripts, m.activePanel)
+	assert.True(t, m.scriptsPane.IsFocused())
+	assert.False(t, m.sidebar.IsFocused())
 }
 
 func TestAppModel_RefreshKey(t *testing.T) {
@@ -171,7 +175,7 @@ func TestAppModel_SetCategories(t *testing.T) {
 	}
 	model.SetCategories(categories)
 
-	assert.Equal(t, StateCategoryList, model.State())
+	assert.Equal(t, StateBrowsing, model.State())
 	assert.Len(t, model.Categories(), 1)
 }
 
@@ -222,7 +226,7 @@ func TestAppModel_FilterActivation(t *testing.T) {
 		{Name: "data", Scripts: []core.Script{{Name: "backup"}}},
 	}
 	model := NewAppModel(categories)
-	assert.Equal(t, StateCategoryList, model.State())
+	assert.Equal(t, StateBrowsing, model.State())
 
 	// Press / to activate filter
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
@@ -230,7 +234,7 @@ func TestAppModel_FilterActivation(t *testing.T) {
 	m := updated.(AppModel)
 
 	assert.Equal(t, StateFilter, m.State())
-	assert.Equal(t, StateCategoryList, m.prevState)
+	assert.Equal(t, StateBrowsing, m.prevState)
 	// Should return blink command
 	assert.NotNil(t, cmd)
 }
@@ -251,13 +255,14 @@ func TestAppModel_FilterCancel(t *testing.T) {
 	// Type something to filter
 	m.filterInput.SetValue("dep")
 	m.menu.ApplyFilter("dep")
+	m.scriptsPane.ApplyFilter("dep")
 
 	// Press esc to cancel
 	msg = tea.KeyMsg{Type: tea.KeyEscape}
 	updated, _ = m.Update(msg)
 	m = updated.(AppModel)
 
-	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, StateBrowsing, m.State())
 	assert.Equal(t, "", m.filterInput.Value())
 }
 
@@ -276,6 +281,7 @@ func TestAppModel_FilterConfirm(t *testing.T) {
 	// Type something to filter
 	m.filterInput.SetValue("dep")
 	m.menu.ApplyFilter("dep")
+	m.scriptsPane.ApplyFilter("dep")
 
 	// Press enter to confirm
 	msg = tea.KeyMsg{Type: tea.KeyEnter}
@@ -283,7 +289,7 @@ func TestAppModel_FilterConfirm(t *testing.T) {
 	m = updated.(AppModel)
 
 	// Should return to previous state with filter applied
-	assert.Equal(t, StateCategoryList, m.State())
+	assert.Equal(t, StateBrowsing, m.State())
 	// Filter value is preserved
 	assert.Equal(t, "dep", m.filterInput.Value())
 }
@@ -294,7 +300,7 @@ func TestAppModel_FilterViewRendering(t *testing.T) {
 	}
 	model := NewAppModel(categories)
 	model.state = StateFilter
-	model.prevState = StateCategoryList
+	model.prevState = StateBrowsing
 
 	view := model.View()
 
@@ -305,7 +311,7 @@ func TestAppModel_FilterViewRendering(t *testing.T) {
 	assert.Contains(t, view, "esc")
 }
 
-func TestAppModel_FilterInScriptList(t *testing.T) {
+func TestAppModel_FilterInBrowsingMode(t *testing.T) {
 	categories := []core.Category{
 		{Name: "deployment", Scripts: []core.Script{
 			{Name: "deploy", Description: "Deploy app"},
@@ -314,16 +320,13 @@ func TestAppModel_FilterInScriptList(t *testing.T) {
 	}
 	model := NewAppModel(categories)
 
-	// Drill into category first
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	updated, _ := model.Update(msg)
-	m := updated.(AppModel)
-	assert.Equal(t, StateScriptList, m.State())
+	// In browsing mode
+	assert.Equal(t, StateBrowsing, model.State())
 
 	// Press / to activate filter
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
-	updated, _ = m.Update(msg)
-	m = updated.(AppModel)
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
 	assert.Equal(t, StateFilter, m.State())
-	assert.Equal(t, StateScriptList, m.prevState)
+	assert.Equal(t, StateBrowsing, m.prevState)
 }

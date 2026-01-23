@@ -209,12 +209,16 @@ _(in progress)_
   - Selection indicator (●) for both categories and scripts
 
 ### 3-Panel Layout
-- [ ] Implement responsive 3-panel layout ← CURRENT
-  - Sidebar (categories) | Main (scripts) | Details (info)
-  - Tab to switch between panels
-  - Active panel border highlighting
+- [x] Implement responsive 3-panel layout ← DONE
+  - Created Panel type with PanelSidebar, PanelScripts, PanelDetails
+  - Created SidebarModel, ScriptsModel, DetailsModel components
+  - Tab/Shift+Tab to switch between panels
+  - Active panel border highlighting with Catppuccin theme
+  - Responsive breakpoints: ≥120 cols (3 panels), 80-119 (2 panels), <80 (1 panel)
+  - Updated AppModel state machine to use StateBrowsing for 3-panel mode
+  - Updated all tests to use new StateBrowsing state
 
-- [ ] Refactor sidebar panel
+- [ ] Refactor sidebar panel ← CURRENT
   - Category list with icons and counts
   - "All Scripts" option at top
   - Pinned scripts section with separator
