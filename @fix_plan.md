@@ -196,12 +196,14 @@ _(in progress)_
   - Added styles_test.go with comprehensive tests
 
 ### Icons & Visual Polish
-- [ ] Add Nerd Font icons ← CURRENT
-  - internal/tui/icons.go: Icon definitions
+- [x] Add Nerd Font icons ← DONE
+  - internal/tui/icons.go: IconSet struct, NerdFontIcons, ASCIIIcons
   - 󰉋 categories,  scripts,  bash,  python
-  - Graceful fallback if Nerd Fonts not available
+  - Graceful fallback via UseASCIIIcons() function
+  - IconForShell() helper for shell-specific icons
+  - Comprehensive tests in icons_test.go
 
-- [ ] Update list item rendering
+- [ ] Update list item rendering ← CURRENT
   - 2-line format: name (bold) + description (dimmed)
   - Icon prefix based on script type
   - Selection indicator (● or highlight bar)
