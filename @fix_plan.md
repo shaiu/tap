@@ -228,14 +228,16 @@ _(in progress)_
   - Added sidebar_test.go with comprehensive tests
   - Spec: specs/08-ui-design.md#sidebar-panel
 
-- [ ] Refactor scripts panel ← CURRENT
+- [x] Refactor scripts panel ← DONE
   - 2-line item display (name + description)
   - Improved selection styling
   - Filter bar integration
   - Match count during filtering
+  - Added FilterQuery and FilterCount styles
+  - Added scripts_test.go with comprehensive tests
   - Spec: specs/08-ui-design.md#scripts-panel
 
-- [ ] Implement details panel (NEW)
+- [ ] Implement details panel (NEW) ← CURRENT
   - Script name with icon
   - Full description (text wrapped)
   - Metadata: category, shell, path

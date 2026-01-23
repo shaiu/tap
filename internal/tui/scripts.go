@@ -72,18 +72,33 @@ func (m ScriptsModel) View() string {
 	// Build content
 	var content strings.Builder
 
-	// Title with filter info
+	// Title
 	title := Styles.Title.Render(fmt.Sprintf("%s Scripts", Icons.Script))
 	content.WriteString(title)
-	content.WriteString("\n\n")
+	content.WriteString("\n")
+
+	// Filter bar (shown when filter is active)
+	headerLines := 2 // title + newline
+	if m.filterQuery != "" {
+		filterBar := m.renderFilterBar()
+		content.WriteString(filterBar)
+		content.WriteString("\n")
+		headerLines = 3 // title + filter bar + newline
+	}
+	content.WriteString("\n")
 
 	list := m.displayList()
 
 	if len(list) == 0 {
-		content.WriteString(Styles.ItemDesc.Render("  No scripts found"))
+		if m.filterQuery != "" {
+			content.WriteString(Styles.ItemDesc.Render("  No matching scripts"))
+		} else {
+			content.WriteString(Styles.ItemDesc.Render("  No scripts found"))
+		}
 	} else {
-		// Visible height for items (accounting for title, padding, borders)
-		visibleHeight := (m.height - 6) / 3 // Each item takes 3 lines (name, desc, spacing)
+		// Visible height for items (accounting for title, filter bar, padding, borders)
+		// Each item takes 3 lines (name, desc, spacing)
+		visibleHeight := (m.height - headerLines - 4) / 3
 		if visibleHeight < 1 {
 			visibleHeight = 1
 		}
@@ -109,6 +124,28 @@ func (m ScriptsModel) View() string {
 		Width(m.width).
 		Height(m.height).
 		Render(content.String())
+}
+
+// renderFilterBar renders the filter bar with query and match count.
+func (m ScriptsModel) renderFilterBar() string {
+	// Format: "Filter: query                [3/12]"
+	query := Styles.FilterQuery.Render(m.filterQuery)
+	count := Styles.FilterCount.Render(fmt.Sprintf("[%d/%d]", len(m.filteredList), len(m.scripts)))
+
+	// Calculate padding to right-align the count
+	filterPrefix := fmt.Sprintf("%s Filter: %s", Icons.Search, query)
+	prefixLen := len(fmt.Sprintf("%s Filter: %s", Icons.Search, m.filterQuery))
+	countLen := len(fmt.Sprintf("[%d/%d]", len(m.filteredList), len(m.scripts)))
+
+	// Available width for spacing (accounting for panel padding)
+	availableWidth := m.width - 6 // Account for borders and padding
+	spacingLen := availableWidth - prefixLen - countLen
+	if spacingLen < 1 {
+		spacingLen = 1
+	}
+
+	spacing := strings.Repeat(" ", spacingLen)
+	return filterPrefix + spacing + count
 }
 
 // renderItem renders a single script item (2-line format).
@@ -146,8 +183,8 @@ func (m ScriptsModel) renderItem(script core.Script, selected bool) string {
 
 // displayList returns the list to display (filtered or full).
 func (m ScriptsModel) displayList() []core.Script {
-	if m.filterQuery != "" && len(m.filteredList) > 0 {
-		return m.filteredList
+	if m.filterQuery != "" {
+		return m.filteredList // May be empty if no matches
 	}
 	return m.scripts
 }

@@ -29,6 +29,10 @@ var Styles = struct {
 	// Footer hint styles (new)
 	Key    lipgloss.Style
 	Action lipgloss.Style
+
+	// Filter styles (for inline filter bar)
+	FilterQuery lipgloss.Style
+	FilterCount lipgloss.Style
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
@@ -104,4 +108,13 @@ var Styles = struct {
 	// Action text in footer
 	Action: lipgloss.NewStyle().
 		Foreground(Theme.Foreground),
+
+	// Filter query text (highlighted)
+	FilterQuery: lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true),
+
+	// Filter match count (dimmed, like [3/12])
+	FilterCount: lipgloss.NewStyle().
+		Foreground(Theme.Subtle),
 }
