@@ -165,8 +165,13 @@ _(in progress)_
   - Template-based script generation with embedded templates
   - Created internal/templates/templates.go with embedded bash.tmpl and python.tmpl
   - Comprehensive tests in new_test.go (validation, parsing, generation)
-- [ ] `tap add <path>` registration ← CURRENT
-- [ ] `tap remove <script>` unregistration
+- [x] `tap add <path>` registration ← DONE
+  - Added internal/cli/add.go with addCmd, addSingleScript, addDirectory functions
+  - Supports --alias/-a for script aliases
+  - Supports --recursive/-r for adding all scripts in a directory
+  - Validates scripts have proper YAML metadata before registering
+  - Added comprehensive tests in add_test.go
+- [ ] `tap remove <script>` unregistration ← CURRENT
 - [x] Script templates (bash.tmpl, python.tmpl) ← (included in tap new)
 
 ---
