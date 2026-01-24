@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -108,7 +107,8 @@ type AppModel struct {
 	formModel FormModel
 
 	// Filter
-	filterInput textinput.Model
+	filterInput   textinput.Model
+	filterOverlay FilterModel
 
 	// Selection
 	selectedCatIdx   int
@@ -137,11 +137,15 @@ func NewAppModel(categories []core.Category) AppModel {
 	width, height := 80, 24
 	layoutMode := calculateLayoutMode(width)
 
-	// Create filter input
+	// Create filter input (legacy)
 	fi := textinput.New()
 	fi.Placeholder = "Filter..."
 	fi.CharLimit = 50
 	fi.Width = 30
+
+	// Create filter overlay model
+	filterOverlay := NewFilterModel()
+	filterOverlay.SetSize(width, height)
 
 	// Create 3-panel components
 	sidebar := NewSidebarModel(categories)
@@ -180,6 +184,7 @@ func NewAppModel(categories []core.Category) AppModel {
 		layoutMode:     layoutMode,
 		footer:         footer,
 		filterInput:    fi,
+		filterOverlay:  filterOverlay,
 		selectedCatIdx: -1,
 		width:          width,
 		height:         height,
@@ -267,6 +272,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update panel sizes based on layout mode
 		m.updatePanelSizes()
+
+		// Update filter overlay size
+		m.filterOverlay.SetSize(msg.Width, msg.Height)
 
 		// Update footer context (layout may have changed)
 		m.updateFooterContext()
@@ -377,9 +385,15 @@ func (m AppModel) updateBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.prevState = m.state
 		m.state = StateFilter
 		m.updateFooterContext()
+		// Enable filter mode on scripts pane (shows all items with dimming)
+		m.scriptsPane.SetFilterMode(true)
+		// Reset and focus filter overlay
+		m.filterOverlay.Reset()
+		m.filterOverlay.SetCounts(m.scriptsPane.TotalCount(), m.scriptsPane.TotalCount())
+		// Also reset legacy filter input for backward compatibility
 		m.filterInput.SetValue("")
 		m.filterInput.Focus()
-		return m, textinput.Blink
+		return m, m.filterOverlay.Focus()
 	case key.Matches(msg, m.keys.Refresh):
 		return m, func() tea.Msg { return RefreshMsg{} }
 	case key.Matches(msg, m.keys.Select):
@@ -607,13 +621,18 @@ func (m AppModel) updateScriptList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEnter:
-		// Confirm filter - keep filtered results and exit filter mode
+		// Confirm filter - keep filtered results and exit filter overlay mode
+		m.filterOverlay.Blur()
 		m.filterInput.Blur()
+		// Disable filter mode (items are now hidden, not dimmed)
+		m.scriptsPane.SetFilterMode(false)
 		m.state = m.prevState
 		m.updateFooterContext()
 		return m, nil
 	case tea.KeyEscape:
 		// Cancel filter - restore full list and exit filter mode
+		m.filterOverlay.Blur()
+		m.filterOverlay.Reset()
 		m.filterInput.Blur()
 		m.filterInput.SetValue("")
 		m.menu.ClearFilter()
@@ -623,13 +642,18 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Update the text input
+	// Update both the overlay input and the legacy filter input
 	var cmd tea.Cmd
-	m.filterInput, cmd = m.filterInput.Update(msg)
+	m.filterOverlay, cmd = m.filterOverlay.Update(msg)
+	m.filterInput, _ = m.filterInput.Update(msg)
 
 	// Apply filter to menu and scripts pane
-	m.menu.ApplyFilter(m.filterInput.Value())
-	m.scriptsPane.ApplyFilter(m.filterInput.Value())
+	query := m.filterOverlay.Value()
+	m.menu.ApplyFilter(query)
+	m.scriptsPane.ApplyFilter(query)
+
+	// Update match counts in overlay
+	m.filterOverlay.SetCounts(m.scriptsPane.ScriptCount(), m.scriptsPane.TotalCount())
 
 	return m, cmd
 }
@@ -743,12 +767,16 @@ func (m *AppModel) updateFooterContext() {
 
 // renderFilterView renders the view with the filter input overlay.
 func (m AppModel) renderFilterView() string {
+	// For browsing mode, render the superfile-style overlay
+	if m.prevState == StateBrowsing {
+		return m.renderFilterOverlayView()
+	}
+
+	// Legacy filter view for category/script list modes
 	var s strings.Builder
 
 	// Header
-	if m.prevState == StateBrowsing {
-		s.WriteString(Styles.Header.Render("tap - Filter Scripts"))
-	} else if m.menu.ShowingScripts() && m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
+	if m.menu.ShowingScripts() && m.selectedCatIdx >= 0 && m.selectedCatIdx < len(m.categories) {
 		s.WriteString(Styles.Header.Render("tap - " + m.categories[m.selectedCatIdx].Name))
 	} else {
 		s.WriteString(Styles.Header.Render("tap - Script Runner"))
@@ -757,23 +785,97 @@ func (m AppModel) renderFilterView() string {
 
 	// Filter input with match count
 	filterText := "Filter: " + m.filterInput.View()
-	if m.prevState == StateBrowsing && m.scriptsPane.FilterQuery() != "" {
-		filterText += Styles.ItemDesc.Render(
-			fmt.Sprintf(" [%d/%d]", m.scriptsPane.ScriptCount(), m.scriptsPane.TotalCount()))
-	}
 	s.WriteString(Styles.FilterInput.Render(filterText))
 	s.WriteString("\n\n")
 
 	// Show filtered list
-	if m.prevState == StateBrowsing {
-		s.WriteString(m.scriptsPane.View())
-	} else if m.menu.ShowingScripts() {
+	if m.menu.ShowingScripts() {
 		s.WriteString(m.menu.scriptList.View())
 	} else {
 		s.WriteString(m.menu.categoryList.View())
 	}
 
 	// Footer
+	s.WriteString("\n")
+	s.WriteString(FilterFooter(m.width))
+
+	return s.String()
+}
+
+// renderFilterOverlayView renders the 3-panel layout with the filter overlay on top.
+func (m AppModel) renderFilterOverlayView() string {
+	// Render the background (scripts panel with dimmed non-matches)
+	var background string
+	switch m.layoutMode {
+	case LayoutThreePanel:
+		background = m.renderThreePanels()
+	case LayoutTwoPanel:
+		background = m.renderTwoPanels()
+	case LayoutOnePanel:
+		background = m.renderOnePanel()
+	}
+
+	// Calculate content area dimensions (without footer)
+	contentHeight := m.height - 3
+
+	// Render the filter overlay box
+	overlayBox := m.filterOverlay.View()
+	overlayLines := strings.Split(overlayBox, "\n")
+	overlayWidth := lipgloss.Width(overlayBox)
+
+	// Center the overlay horizontally
+	horizPadding := (m.width - overlayWidth) / 2
+	if horizPadding < 0 {
+		horizPadding = 0
+	}
+
+	// Position overlay near the top (about 1/5 down)
+	vertPadding := contentHeight / 5
+	if vertPadding < 2 {
+		vertPadding = 2
+	}
+
+	// Composite the overlay on top of the background
+	bgLines := strings.Split(background, "\n")
+
+	// Ensure we have enough lines for the overlay
+	requiredLines := vertPadding + len(overlayLines)
+	if len(bgLines) < requiredLines {
+		// Pad background with empty lines
+		for len(bgLines) < requiredLines {
+			bgLines = append(bgLines, "")
+		}
+	}
+
+	result := make([]string, len(bgLines))
+	copy(result, bgLines)
+
+	indent := strings.Repeat(" ", horizPadding)
+	for i, overlayLine := range overlayLines {
+		lineIdx := vertPadding + i
+		if lineIdx >= 0 && lineIdx < len(result) {
+			// Overlay the filter box on this line
+			result[lineIdx] = indent + overlayLine
+		}
+	}
+
+	// Add footer
+	var s strings.Builder
+	for i, line := range result {
+		s.WriteString(line)
+		if i < len(result)-1 {
+			s.WriteString("\n")
+		}
+	}
+
+	// Ensure we have enough lines for footer
+	currentLines := len(result)
+	neededLines := contentHeight
+	for currentLines < neededLines {
+		s.WriteString("\n")
+		currentLines++
+	}
+
 	s.WriteString("\n")
 	s.WriteString(FilterFooter(m.width))
 

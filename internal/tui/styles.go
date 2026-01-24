@@ -33,6 +33,11 @@ var Styles = struct {
 	// Filter styles (for inline filter bar)
 	FilterQuery lipgloss.Style
 	FilterCount lipgloss.Style
+
+	// Filter overlay styles (for dimming non-matches)
+	ItemDimmed     lipgloss.Style // Non-matching items during filtering
+	ItemMatch      lipgloss.Style // Matching items during filtering (highlighted)
+	ItemMatchDesc  lipgloss.Style // Description of matching items
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
@@ -116,5 +121,18 @@ var Styles = struct {
 
 	// Filter match count (dimmed, like [3/12])
 	FilterCount: lipgloss.NewStyle().
+		Foreground(Theme.Subtle),
+
+	// Non-matching items during filtering (heavily dimmed)
+	ItemDimmed: lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#45475a")), // Even more subtle than Theme.Subtle
+
+	// Matching items during filtering (highlighted)
+	ItemMatch: lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true),
+
+	// Description of matching items
+	ItemMatchDesc: lipgloss.NewStyle().
 		Foreground(Theme.Subtle),
 }

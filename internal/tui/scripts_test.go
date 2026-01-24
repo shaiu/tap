@@ -519,3 +519,179 @@ func TestScriptsModel_RenderItem_TruncatesLongDescription(t *testing.T) {
 		t.Error("expected long description to be truncated")
 	}
 }
+
+// Filter Mode Tests
+
+func TestScriptsModel_FilterMode_Toggle(t *testing.T) {
+	m := NewScriptsModel()
+
+	// Initially not in filter mode
+	if m.IsFilterMode() {
+		t.Error("expected filter mode to be false initially")
+	}
+
+	// Enable filter mode
+	m.SetFilterMode(true)
+	if !m.IsFilterMode() {
+		t.Error("expected filter mode to be true after enabling")
+	}
+
+	// Disable filter mode
+	m.SetFilterMode(false)
+	if m.IsFilterMode() {
+		t.Error("expected filter mode to be false after disabling")
+	}
+}
+
+func TestScriptsModel_FilterMode_ClearedOnClearFilter(t *testing.T) {
+	m := NewScriptsModel()
+	m.SetFilterMode(true)
+	m.ApplyFilter("test")
+
+	m.ClearFilter()
+
+	if m.IsFilterMode() {
+		t.Error("expected filter mode to be cleared after ClearFilter")
+	}
+	if m.FilterQuery() != "" {
+		t.Error("expected filter query to be empty after ClearFilter")
+	}
+}
+
+func TestScriptsModel_IsMatched_WithNoFilter(t *testing.T) {
+	m := NewScriptsModel()
+	scripts := []core.Script{
+		{Name: "deploy.sh"},
+		{Name: "backup.sh"},
+	}
+	m.SetScripts(scripts)
+
+	// With no filter, all items should be "matched"
+	if !m.IsMatched(0) {
+		t.Error("expected IsMatched(0) to be true when no filter")
+	}
+	if !m.IsMatched(1) {
+		t.Error("expected IsMatched(1) to be true when no filter")
+	}
+}
+
+func TestScriptsModel_IsMatched_WithFilter(t *testing.T) {
+	m := NewScriptsModel()
+	scripts := []core.Script{
+		{Name: "deploy-staging.sh", Description: "Deploy to staging"},
+		{Name: "backup-database.sh", Description: "Backup PostgreSQL"},
+		{Name: "deploy-production.sh", Description: "Deploy to production"},
+	}
+	m.SetScripts(scripts)
+
+	m.ApplyFilter("deploy")
+
+	// Index 0 and 2 should match (deploy-staging and deploy-production)
+	if !m.IsMatched(0) {
+		t.Error("expected IsMatched(0) to be true for deploy-staging.sh")
+	}
+	if m.IsMatched(1) {
+		t.Error("expected IsMatched(1) to be false for backup-database.sh")
+	}
+	if !m.IsMatched(2) {
+		t.Error("expected IsMatched(2) to be true for deploy-production.sh")
+	}
+}
+
+func TestScriptsModel_FilterMode_DisplayListShowsAllScripts(t *testing.T) {
+	m := NewScriptsModel()
+	m.SetSize(60, 20)
+
+	scripts := []core.Script{
+		{Name: "deploy-staging.sh", Description: "Deploy to staging"},
+		{Name: "backup-database.sh", Description: "Backup PostgreSQL"},
+		{Name: "deploy-production.sh", Description: "Deploy to production"},
+	}
+	m.SetScripts(scripts)
+
+	// Enable filter mode before applying filter
+	m.SetFilterMode(true)
+	m.ApplyFilter("deploy")
+
+	// displayListForView should return all scripts in filter mode
+	list := m.displayListForView()
+	if len(list) != 3 {
+		t.Errorf("expected displayListForView to return all 3 scripts in filter mode, got %d", len(list))
+	}
+
+	// displayList (filtered) should still show only matches
+	filteredList := m.displayList()
+	if len(filteredList) != 2 {
+		t.Errorf("expected displayList to return 2 matching scripts, got %d", len(filteredList))
+	}
+}
+
+func TestScriptsModel_FilterMode_ViewShowsAllScripts(t *testing.T) {
+	m := NewScriptsModel()
+	m.SetSize(80, 25)
+
+	scripts := []core.Script{
+		{Name: "deploy.sh", Description: "Deploy to production"},
+		{Name: "backup.sh", Description: "Backup database"},
+		{Name: "test.sh", Description: "Run tests"},
+	}
+	m.SetScripts(scripts)
+
+	// Enable filter mode and apply filter
+	m.SetFilterMode(true)
+	m.ApplyFilter("deploy")
+
+	view := m.View()
+
+	// All scripts should be visible in filter mode (non-matches dimmed)
+	if !strings.Contains(view, "deploy.sh") {
+		t.Error("expected view to contain 'deploy.sh' in filter mode")
+	}
+	if !strings.Contains(view, "backup.sh") {
+		t.Error("expected view to contain 'backup.sh' (dimmed) in filter mode")
+	}
+	if !strings.Contains(view, "test.sh") {
+		t.Error("expected view to contain 'test.sh' (dimmed) in filter mode")
+	}
+
+	// Filter bar should NOT be shown in filter mode (overlay handles it)
+	if strings.Contains(view, "Filter:") {
+		t.Error("expected filter bar to NOT be shown when filterMode is true (overlay mode)")
+	}
+}
+
+func TestScriptsModel_NoFilterMode_ViewHidesNonMatches(t *testing.T) {
+	m := NewScriptsModel()
+	m.SetSize(80, 25)
+
+	scripts := []core.Script{
+		{Name: "deploy.sh", Description: "Deploy to production"},
+		{Name: "backup.sh", Description: "Backup database"},
+		{Name: "test.sh", Description: "Run tests"},
+	}
+	m.SetScripts(scripts)
+
+	// Apply filter WITHOUT enabling filter mode (normal behavior)
+	m.SetFilterMode(false)
+	m.ApplyFilter("deploy")
+
+	view := m.View()
+
+	// Only matching script should be visible
+	if !strings.Contains(view, "deploy.sh") {
+		t.Error("expected view to contain 'deploy.sh' when filtered")
+	}
+
+	// Non-matching scripts should NOT be visible (hidden, not dimmed)
+	if strings.Contains(view, "backup.sh") {
+		t.Error("expected 'backup.sh' to be hidden (not shown) when not in filter mode")
+	}
+	if strings.Contains(view, "test.sh") {
+		t.Error("expected 'test.sh' to be hidden (not shown) when not in filter mode")
+	}
+
+	// Filter bar SHOULD be shown when not in overlay mode
+	if !strings.Contains(view, "Filter:") {
+		t.Error("expected filter bar to be shown when filterMode is false")
+	}
+}

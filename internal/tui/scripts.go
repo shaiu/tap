@@ -19,6 +19,8 @@ type ScriptsModel struct {
 	height        int
 	filterQuery   string
 	filteredList  []core.Script
+	matchedSet    map[int]bool // Indices of scripts that match the filter
+	filterMode    bool         // True when filter overlay is active (show all with dimming)
 }
 
 // NewScriptsModel creates a new ScriptsModel.
@@ -29,6 +31,8 @@ func NewScriptsModel() ScriptsModel {
 		cursor:       0,
 		focused:      false,
 		filteredList: []core.Script{},
+		matchedSet:   make(map[int]bool),
+		filterMode:   false,
 	}
 }
 
@@ -77,9 +81,9 @@ func (m ScriptsModel) View() string {
 	content.WriteString(title)
 	content.WriteString("\n")
 
-	// Filter bar (shown when filter is active)
+	// Filter bar (shown when filter is active but NOT in overlay mode)
 	headerLines := 2 // title + newline
-	if m.filterQuery != "" {
+	if m.filterQuery != "" && !m.filterMode {
 		filterBar := m.renderFilterBar()
 		content.WriteString(filterBar)
 		content.WriteString("\n")
@@ -87,7 +91,9 @@ func (m ScriptsModel) View() string {
 	}
 	content.WriteString("\n")
 
-	list := m.displayList()
+	// In filter mode, show ALL scripts with non-matches dimmed
+	// Otherwise, show filtered list
+	list := m.displayListForView()
 
 	if len(list) == 0 {
 		if m.filterQuery != "" {
@@ -112,7 +118,8 @@ func (m ScriptsModel) View() string {
 		// Render visible items
 		for i := scrollOffset; i < len(list) && i < scrollOffset+visibleHeight; i++ {
 			script := list[i]
-			content.WriteString(m.renderItem(script, i == m.cursor))
+			isMatch := m.IsMatched(i)
+			content.WriteString(m.renderItemWithFilter(script, i == m.cursor, isMatch))
 			if i < len(list)-1 && i < scrollOffset+visibleHeight-1 {
 				content.WriteString("\n\n")
 			}
@@ -124,6 +131,16 @@ func (m ScriptsModel) View() string {
 		Width(m.width).
 		Height(m.height).
 		Render(content.String())
+}
+
+// displayListForView returns the list to display for rendering.
+// In filter mode, returns all scripts (non-matches will be dimmed).
+// Otherwise, returns the filtered list.
+func (m ScriptsModel) displayListForView() []core.Script {
+	if m.filterMode {
+		return m.scripts // Show all, dimming handled in renderItem
+	}
+	return m.displayList()
 }
 
 // renderFilterBar renders the filter bar with query and match count.
@@ -150,14 +167,28 @@ func (m ScriptsModel) renderFilterBar() string {
 
 // renderItem renders a single script item (2-line format).
 func (m ScriptsModel) renderItem(script core.Script, selected bool) string {
+	return m.renderItemWithFilter(script, selected, true) // true = matches (normal rendering)
+}
+
+// renderItemWithFilter renders a single script item with filter awareness.
+// If isMatch is false and filter is active, the item is dimmed.
+func (m ScriptsModel) renderItemWithFilter(script core.Script, selected, isMatch bool) string {
 	var s strings.Builder
 
 	// Get shell-specific icon
 	icon := IconForShell(script.Shell)
 
+	// Determine styling based on filter state
+	isDimmed := m.filterMode && m.filterQuery != "" && !isMatch
+
 	// Title line with icon
-	if selected {
+	if selected && !isDimmed {
 		s.WriteString(Styles.ItemSelected.Render(fmt.Sprintf("● %s %s", icon, script.Name)))
+	} else if isDimmed {
+		s.WriteString(Styles.ItemDimmed.Render(fmt.Sprintf("  %s %s", icon, script.Name)))
+	} else if isMatch && m.filterMode && m.filterQuery != "" {
+		// Highlighted match in filter mode
+		s.WriteString(Styles.ItemMatch.Render(fmt.Sprintf("  %s %s", icon, script.Name)))
 	} else {
 		s.WriteString(Styles.Item.Render(fmt.Sprintf("  %s %s", icon, script.Name)))
 	}
@@ -176,7 +207,14 @@ func (m ScriptsModel) renderItem(script core.Script, selected bool) string {
 	if len(desc) > maxDescLen {
 		desc = desc[:maxDescLen-3] + "..."
 	}
-	s.WriteString(Styles.ItemDesc.Render("      " + desc))
+
+	if isDimmed {
+		s.WriteString(Styles.ItemDimmed.Render("      " + desc))
+	} else if isMatch && m.filterMode && m.filterQuery != "" {
+		s.WriteString(Styles.ItemMatchDesc.Render("      " + desc))
+	} else {
+		s.WriteString(Styles.ItemDesc.Render("      " + desc))
+	}
 
 	return s.String()
 }
@@ -231,24 +269,30 @@ func (m *ScriptsModel) SetAllScripts(categories []core.Category) {
 // ApplyFilter filters the scripts based on the query.
 func (m *ScriptsModel) ApplyFilter(query string) {
 	m.filterQuery = strings.ToLower(strings.TrimSpace(query))
+	m.matchedSet = make(map[int]bool)
+
 	if m.filterQuery == "" {
 		m.filteredList = nil
 		return
 	}
 
 	m.filteredList = nil
-	for _, script := range m.scripts {
+	for i, script := range m.scripts {
 		if m.matchesFilter(script) {
 			m.filteredList = append(m.filteredList, script)
+			m.matchedSet[i] = true
 		}
 	}
 
-	// Reset cursor if out of bounds
-	if m.cursor >= len(m.filteredList) {
-		m.cursor = len(m.filteredList) - 1
-	}
-	if m.cursor < 0 {
-		m.cursor = 0
+	// In filter mode, cursor stays within matched items only
+	if !m.filterMode {
+		// Reset cursor if out of bounds
+		if m.cursor >= len(m.filteredList) {
+			m.cursor = len(m.filteredList) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
 	}
 }
 
@@ -256,6 +300,27 @@ func (m *ScriptsModel) ApplyFilter(query string) {
 func (m *ScriptsModel) ClearFilter() {
 	m.filterQuery = ""
 	m.filteredList = nil
+	m.matchedSet = make(map[int]bool)
+	m.filterMode = false
+}
+
+// SetFilterMode enables or disables filter mode.
+// In filter mode, all scripts are shown with non-matches dimmed.
+func (m *ScriptsModel) SetFilterMode(enabled bool) {
+	m.filterMode = enabled
+}
+
+// IsFilterMode returns whether filter mode is active.
+func (m ScriptsModel) IsFilterMode() bool {
+	return m.filterMode
+}
+
+// IsMatched checks if a script at the given index matches the current filter.
+func (m ScriptsModel) IsMatched(idx int) bool {
+	if m.filterQuery == "" {
+		return true // No filter means all match
+	}
+	return m.matchedSet[idx]
 }
 
 // matchesFilter checks if a script matches the current filter.

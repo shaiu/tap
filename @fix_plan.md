@@ -265,14 +265,19 @@ _(in progress)_
   - Centered overlay box with rounded border
   - Comprehensive tests in help_test.go
 
-### Filter Improvements ← CURRENT
-- [ ] Enhance filter overlay
+### Filter Improvements
+- [x] Enhance filter overlay ← DONE
   - Overlay box styling (superfile-style)
   - Real-time match highlighting
   - Non-matching items dimmed (not hidden)
   - Match count [3/12] display
+  - Created internal/tui/filter.go with FilterModel
+  - Added ItemDimmed, ItemMatch, ItemMatchDesc styles
+  - Updated scripts.go with filter mode for dimming
+  - Updated app.go with filter overlay compositing
+  - Added comprehensive tests in filter_test.go and scripts_test.go
 
-### Responsive Design
+### Responsive Design ← CURRENT
 - [ ] Implement width breakpoints
   - ≥120 cols: 3 panels
   - 80-119 cols: 2 panels (no details)

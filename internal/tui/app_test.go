@@ -299,13 +299,17 @@ func TestAppModel_FilterViewRendering(t *testing.T) {
 		{Name: "deployment", Scripts: []core.Script{{Name: "deploy"}}},
 	}
 	model := NewAppModel(categories)
-	model.state = StateFilter
-	model.prevState = StateBrowsing
 
-	view := model.View()
+	// Activate filter through proper flow (pressing /)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m := updatedModel.(AppModel)
 
-	// Should show filter input
-	assert.Contains(t, view, "Filter:")
+	view := m.View()
+
+	// Should show filter overlay with rounded border (superfile-style)
+	assert.Contains(t, view, "Filter", "Filter overlay should contain 'Filter' text")
+	// Should have rounded box border characters
+	assert.Contains(t, view, "╭", "Filter overlay should have rounded corners")
 	// Should show footer with filter keys
 	assert.Contains(t, view, "enter")
 	assert.Contains(t, view, "esc")
