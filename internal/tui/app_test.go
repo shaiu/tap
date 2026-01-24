@@ -334,3 +334,174 @@ func TestAppModel_FilterInBrowsingMode(t *testing.T) {
 	assert.Equal(t, StateFilter, m.State())
 	assert.Equal(t, StateBrowsing, m.prevState)
 }
+
+// Test responsive layout functionality
+
+func TestCalculateLayoutMode(t *testing.T) {
+	tests := []struct {
+		width    int
+		expected LayoutMode
+	}{
+		{width: 150, expected: LayoutThreePanel},
+		{width: 120, expected: LayoutThreePanel},
+		{width: 119, expected: LayoutTwoPanel},
+		{width: 100, expected: LayoutTwoPanel},
+		{width: 80, expected: LayoutTwoPanel},
+		{width: 79, expected: LayoutOnePanel},
+		{width: 60, expected: LayoutOnePanel},
+		{width: 40, expected: LayoutOnePanel},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(rune(tt.width)), func(t *testing.T) {
+			assert.Equal(t, tt.expected, calculateLayoutMode(tt.width))
+		})
+	}
+}
+
+func TestAppModel_LayoutModeOnResize(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Start with default (80 width = 2-panel mode)
+	assert.Equal(t, LayoutTwoPanel, model.layoutMode)
+
+	// Resize to wide (3-panel mode)
+	msg := tea.WindowSizeMsg{Width: 130, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	assert.Equal(t, LayoutThreePanel, m.layoutMode)
+
+	// Resize to narrow (1-panel mode)
+	msg = tea.WindowSizeMsg{Width: 70, Height: 24}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+	assert.Equal(t, LayoutOnePanel, m.layoutMode)
+}
+
+func TestAppModel_PanelFocusAdjustsOnLayoutChange(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Start in 3-panel mode with focus on details panel
+	msg := tea.WindowSizeMsg{Width: 130, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// Switch to details panel (tab twice)
+	tabMsg := tea.KeyMsg{Type: tea.KeyTab}
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelDetails, m.activePanel)
+	assert.True(t, m.detailsPane.IsFocused())
+
+	// Resize to 2-panel mode (details is hidden)
+	msg = tea.WindowSizeMsg{Width: 100, Height: 24}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+
+	// Active panel should be adjusted to scripts (last visible panel)
+	assert.Equal(t, LayoutTwoPanel, m.layoutMode)
+	assert.Equal(t, PanelScripts, m.activePanel)
+	assert.True(t, m.scriptsPane.IsFocused())
+	assert.False(t, m.detailsPane.IsFocused())
+}
+
+func TestAppModel_OnePanelModeStartsWithScriptsFocused(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 1-panel mode
+	msg := tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// In 1-panel mode, scripts should be focused (sidebar is hidden)
+	assert.Equal(t, LayoutOnePanel, m.layoutMode)
+	assert.Equal(t, PanelScripts, m.activePanel)
+	assert.True(t, m.scriptsPane.IsFocused())
+	assert.False(t, m.sidebar.IsFocused())
+}
+
+func TestAppModel_PanelSwitchingDisabledInOnePanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 1-panel mode
+	msg := tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	assert.Equal(t, LayoutOnePanel, m.layoutMode)
+	assert.Equal(t, PanelScripts, m.activePanel)
+
+	// Tab should not change panel in 1-panel mode
+	tabMsg := tea.KeyMsg{Type: tea.KeyTab}
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelScripts, m.activePanel)
+
+	// Shift+Tab should not change panel either
+	shiftTabMsg := tea.KeyMsg{Type: tea.KeyShiftTab}
+	updated, _ = m.Update(shiftTabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelScripts, m.activePanel)
+}
+
+func TestAppModel_TwoPanelModePanelSwitching(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Start in 2-panel mode (default 80 width)
+	assert.Equal(t, LayoutTwoPanel, model.layoutMode)
+	assert.Equal(t, PanelSidebar, model.activePanel)
+
+	// Tab: Sidebar → Scripts
+	tabMsg := tea.KeyMsg{Type: tea.KeyTab}
+	updated, _ := model.Update(tabMsg)
+	m := updated.(AppModel)
+	assert.Equal(t, PanelScripts, m.activePanel)
+
+	// Tab: Scripts → Sidebar (wraps, not to Details)
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelSidebar, m.activePanel)
+}
+
+func TestAppModel_ThreePanelModePanelSwitching(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 3-panel mode
+	msg := tea.WindowSizeMsg{Width: 130, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	assert.Equal(t, LayoutThreePanel, m.layoutMode)
+
+	// Tab: Sidebar → Scripts → Details → Sidebar
+	tabMsg := tea.KeyMsg{Type: tea.KeyTab}
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelScripts, m.activePanel)
+
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelDetails, m.activePanel)
+
+	updated, _ = m.Update(tabMsg)
+	m = updated.(AppModel)
+	assert.Equal(t, PanelSidebar, m.activePanel)
+}

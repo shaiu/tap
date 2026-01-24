@@ -152,12 +152,19 @@ func NewAppModel(categories []core.Category) AppModel {
 	scriptsPane := NewScriptsModel()
 	detailsPane := NewDetailsModel()
 
+	// Determine initial active panel based on layout mode
+	// In 1-panel mode, only scripts are visible
+	initialPanel := PanelSidebar
+	if layoutMode == LayoutOnePanel {
+		initialPanel = PanelScripts
+	}
+
 	// Create footer
 	footer := NewFooterModel()
 	footer.SetWidth(width)
 	footer.SetContext(FooterContext{
 		State:       state,
-		ActivePanel: PanelSidebar,
+		ActivePanel: initialPanel,
 		LayoutMode:  layoutMode,
 		HasParams:   false,
 	})
@@ -168,9 +175,9 @@ func NewAppModel(categories []core.Category) AppModel {
 		scriptsPane.SetAllScripts(categories)
 	}
 
-	// Set initial focus
-	sidebar.SetFocused(true)
-	scriptsPane.SetFocused(false)
+	// Set initial focus based on layout
+	sidebar.SetFocused(initialPanel == PanelSidebar)
+	scriptsPane.SetFocused(initialPanel == PanelScripts)
 	detailsPane.SetFocused(false)
 
 	return AppModel{
@@ -180,7 +187,7 @@ func NewAppModel(categories []core.Category) AppModel {
 		sidebar:        sidebar,
 		scriptsPane:    scriptsPane,
 		detailsPane:    detailsPane,
-		activePanel:    PanelSidebar,
+		activePanel:    initialPanel,
 		layoutMode:     layoutMode,
 		footer:         footer,
 		filterInput:    fi,
@@ -272,6 +279,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update panel sizes based on layout mode
 		m.updatePanelSizes()
+
+		// Ensure active panel is valid for new layout mode
+		m.ensureValidActivePanel()
 
 		// Update filter overlay size
 		m.filterOverlay.SetSize(msg.Width, msg.Height)
@@ -407,10 +417,21 @@ func (m AppModel) updateBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // switchToNextPanel moves focus to the next panel.
 func (m *AppModel) switchToNextPanel() {
+	minPanel := m.minPanelForLayout()
+	maxPanel := m.maxPanelForLayout()
+
+	// In 1-panel mode, don't switch panels
+	if minPanel == maxPanel {
+		return
+	}
+
 	m.setAllPanelsUnfocused()
 
-	maxPanel := m.maxPanelForLayout()
-	m.activePanel = Panel((int(m.activePanel) + 1) % (int(maxPanel) + 1))
+	if m.activePanel >= maxPanel {
+		m.activePanel = minPanel
+	} else {
+		m.activePanel = Panel(int(m.activePanel) + 1)
+	}
 
 	m.setActivePanelFocused()
 	m.updateFooterContext()
@@ -418,10 +439,17 @@ func (m *AppModel) switchToNextPanel() {
 
 // switchToPrevPanel moves focus to the previous panel.
 func (m *AppModel) switchToPrevPanel() {
+	minPanel := m.minPanelForLayout()
+	maxPanel := m.maxPanelForLayout()
+
+	// In 1-panel mode, don't switch panels
+	if minPanel == maxPanel {
+		return
+	}
+
 	m.setAllPanelsUnfocused()
 
-	maxPanel := m.maxPanelForLayout()
-	if m.activePanel == PanelSidebar {
+	if m.activePanel <= minPanel {
 		m.activePanel = maxPanel
 	} else {
 		m.activePanel = Panel(int(m.activePanel) - 1)
@@ -439,8 +467,35 @@ func (m AppModel) maxPanelForLayout() Panel {
 	case LayoutTwoPanel:
 		return PanelScripts
 	default:
+		// In 1-panel mode, only scripts panel is visible
 		return PanelScripts
 	}
+}
+
+// minPanelForLayout returns the min panel index for the current layout.
+func (m AppModel) minPanelForLayout() Panel {
+	switch m.layoutMode {
+	case LayoutOnePanel:
+		// In 1-panel mode, only scripts panel is visible
+		return PanelScripts
+	default:
+		return PanelSidebar
+	}
+}
+
+// ensureValidActivePanel adjusts the active panel if it's not visible in the current layout.
+func (m *AppModel) ensureValidActivePanel() {
+	minPanel := m.minPanelForLayout()
+	maxPanel := m.maxPanelForLayout()
+
+	if m.activePanel < minPanel {
+		m.activePanel = minPanel
+	} else if m.activePanel > maxPanel {
+		m.activePanel = maxPanel
+	}
+
+	m.setAllPanelsUnfocused()
+	m.setActivePanelFocused()
 }
 
 // setAllPanelsUnfocused removes focus from all panels.

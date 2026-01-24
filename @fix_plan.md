@@ -277,14 +277,18 @@ _(in progress)_
   - Updated app.go with filter overlay compositing
   - Added comprehensive tests in filter_test.go and scripts_test.go
 
-### Responsive Design ← CURRENT
-- [ ] Implement width breakpoints
+### Responsive Design
+- [x] Implement width breakpoints ← DONE
   - ≥120 cols: 3 panels
   - 80-119 cols: 2 panels (no details)
   - <80 cols: 1 panel (scripts only)
   - Handle tea.WindowSizeMsg properly
+  - Added minPanelForLayout() and ensureValidActivePanel() methods
+  - Panel focus automatically adjusts when layout changes
+  - Panel switching disabled in 1-panel mode
+  - Added comprehensive tests for all layout modes
 
-### Final Polish
+### Final Polish ← CURRENT
 - [ ] Add loading state with spinner
   - "Scanning scripts..." message
   - Centered spinner animation
