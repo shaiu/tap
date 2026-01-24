@@ -258,12 +258,14 @@ _(in progress)_
   - Added comprehensive tests in footer_test.go
   - Spec: specs/08-ui-design.md#footer-bar
 
-- [ ] Improve help overlay ← CURRENT
-  - Categorized keybinding sections
-  - Styled with theme colors
-  - ? to toggle
+- [x] Improve help overlay ← DONE
+  - Created internal/tui/help.go with HelpModel and HelpSection structs
+  - Categorized keybinding sections (Navigation, Panels, Filtering, Actions)
+  - Styled with theme colors (Primary for keys, Secondary for section headers)
+  - Centered overlay box with rounded border
+  - Comprehensive tests in help_test.go
 
-### Filter Improvements
+### Filter Improvements ← CURRENT
 - [ ] Enhance filter overlay
   - Overlay box styling (superfile-style)
   - Real-time match highlighting

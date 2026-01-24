@@ -782,28 +782,7 @@ func (m AppModel) renderFilterView() string {
 
 // renderHelp renders the help overlay.
 func (m AppModel) renderHelp() string {
-	help := `
-Keyboard Shortcuts
-
-Navigation
-  ↑/k       Move up
-  ↓/j       Move down
-  enter     Select / Run
-  esc       Go back
-
-Filtering
-  /         Start filtering
-  esc       Cancel filter
-  enter     Select match
-
-Other
-  ?         Show this help
-  r         Refresh scripts
-  q         Quit
-
-Press any key to close...
-`
-	return Styles.Help.Render(help)
+	return RenderHelp(m.width, m.height)
 }
 
 // State returns the current view state.
