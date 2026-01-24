@@ -288,12 +288,15 @@ _(in progress)_
   - Panel switching disabled in 1-panel mode
   - Added comprehensive tests for all layout modes
 
-### Final Polish ← CURRENT
-- [ ] Add loading state with spinner
+### Final Polish
+- [x] Add loading state with spinner ← DONE
   - "Scanning scripts..." message
   - Centered spinner animation
+  - Added spinner.Model field to AppModel
+  - Init() returns spinner.Tick when loading
+  - Centered panel with rounded borders
 
-- [ ] Visual feedback for actions
+- [ ] Visual feedback for actions ← CURRENT
   - Brief highlight on script run
   - Error display in footer
 

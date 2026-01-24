@@ -182,7 +182,13 @@ func TestAppModel_SetCategories(t *testing.T) {
 func TestAppModel_ViewLoading(t *testing.T) {
 	model := NewAppModel(nil)
 	view := model.View()
-	assert.Contains(t, view, "Loading")
+
+	// Loading view should show the scanning message
+	assert.Contains(t, view, "Scanning scripts...")
+
+	// Should be rendered in a panel with rounded borders
+	assert.Contains(t, view, "╭") // Top-left corner of rounded border
+	assert.Contains(t, view, "╯") // Bottom-right corner of rounded border
 }
 
 func TestAppModel_ViewHelp(t *testing.T) {
@@ -504,4 +510,25 @@ func TestAppModel_ThreePanelModePanelSwitching(t *testing.T) {
 	updated, _ = m.Update(tabMsg)
 	m = updated.(AppModel)
 	assert.Equal(t, PanelSidebar, m.activePanel)
+}
+
+func TestAppModel_InitReturnsSpinnerTickWhenLoading(t *testing.T) {
+	// When in loading state, Init should return a spinner tick command
+	model := NewAppModel(nil)
+	assert.Equal(t, StateLoading, model.State())
+
+	cmd := model.Init()
+	assert.NotNil(t, cmd, "Init should return spinner tick command when loading")
+}
+
+func TestAppModel_InitReturnsNilWhenNotLoading(t *testing.T) {
+	// When not in loading state, Init should return nil
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+	assert.Equal(t, StateBrowsing, model.State())
+
+	cmd := model.Init()
+	assert.Nil(t, cmd, "Init should return nil when not loading")
 }

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -110,6 +111,9 @@ type AppModel struct {
 	filterInput   textinput.Model
 	filterOverlay FilterModel
 
+	// Loading spinner
+	loadingSpinner spinner.Model
+
 	// Selection
 	selectedCatIdx   int
 	selectedScript   *core.Script
@@ -146,6 +150,11 @@ func NewAppModel(categories []core.Category) AppModel {
 	// Create filter overlay model
 	filterOverlay := NewFilterModel()
 	filterOverlay.SetSize(width, height)
+
+	// Create loading spinner (dots style for modern look)
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(Theme.Primary)
 
 	// Create 3-panel components
 	sidebar := NewSidebarModel(categories)
@@ -192,6 +201,7 @@ func NewAppModel(categories []core.Category) AppModel {
 		footer:         footer,
 		filterInput:    fi,
 		filterOverlay:  filterOverlay,
+		loadingSpinner: sp,
 		selectedCatIdx: -1,
 		width:          width,
 		height:         height,
@@ -265,6 +275,9 @@ func (m *AppModel) updatePanelSizes() {
 
 // Init implements tea.Model.
 func (m AppModel) Init() tea.Cmd {
+	if m.state == StateLoading {
+		return m.loadingSpinner.Tick
+	}
 	return nil
 }
 
@@ -336,6 +349,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ErrorMsg:
 		m.err = msg.Err
+		return m, nil
+
+	case spinner.TickMsg:
+		// Update spinner animation during loading
+		if m.state == StateLoading {
+			var cmd tea.Cmd
+			m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -729,7 +751,7 @@ func (m AppModel) View() string {
 
 	switch m.state {
 	case StateLoading:
-		return "Loading scripts..."
+		return m.renderLoadingView()
 	case StateHelp:
 		return m.renderHelp()
 	case StateFilter:
@@ -742,6 +764,76 @@ func (m AppModel) View() string {
 		// Legacy: CategoryList, ScriptList views are rendered by MenuModel
 		return m.menu.View()
 	}
+}
+
+// renderLoadingView renders a centered loading spinner.
+func (m AppModel) renderLoadingView() string {
+	// Calculate content area dimensions
+	contentWidth := m.width
+	contentHeight := m.height - 3 // Reserve space for footer
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
+
+	// Create the loading message and spinner
+	message := "Scanning scripts..."
+	spinnerFrame := m.loadingSpinner.View()
+
+	// Create centered content
+	messageStyle := lipgloss.NewStyle().
+		Foreground(Theme.Foreground)
+	spinnerStyle := lipgloss.NewStyle().
+		Foreground(Theme.Primary)
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		messageStyle.Render(message),
+		spinnerStyle.Render(spinnerFrame),
+	)
+
+	// Create the panel box
+	panelWidth := contentWidth - 4 // Account for border padding
+	panelHeight := contentHeight - 2
+
+	// Calculate vertical padding to center content
+	contentLines := 2 // message + spinner
+	topPadding := (panelHeight - contentLines) / 2
+	if topPadding < 1 {
+		topPadding = 1
+	}
+
+	// Build vertically centered content
+	var lines []string
+	for i := 0; i < topPadding; i++ {
+		lines = append(lines, "")
+	}
+	lines = append(lines, content)
+
+	centeredContent := strings.Join(lines, "\n")
+
+	// Create the panel with rounded border
+	panel := Styles.PanelActive.
+		Width(panelWidth).
+		Height(panelHeight).
+		Align(lipgloss.Center).
+		Render(centeredContent)
+
+	// Center the panel horizontally
+	panelView := lipgloss.Place(
+		contentWidth,
+		contentHeight,
+		lipgloss.Center,
+		lipgloss.Center,
+		panel,
+	)
+
+	// Add footer
+	footer := m.footer.View()
+
+	return panelView + "\n" + footer
 }
 
 // renderBrowsingView renders the 3-panel layout.
