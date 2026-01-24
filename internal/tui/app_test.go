@@ -532,3 +532,299 @@ func TestAppModel_InitReturnsNilWhenNotLoading(t *testing.T) {
 	cmd := model.Init()
 	assert.Nil(t, cmd, "Init should return nil when not loading")
 }
+
+// ============================================================================
+// Terminal Size Tests - Comprehensive responsive layout verification
+// ============================================================================
+
+func TestAppModel_ViewRendering_ThreePanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy to production"},
+		}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 3-panel mode (≥120 cols)
+	msg := tea.WindowSizeMsg{Width: 140, Height: 30}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	assert.Equal(t, LayoutThreePanel, m.layoutMode)
+	view := m.View()
+
+	// Should contain all three panels with their titles
+	assert.Contains(t, view, "Categories", "Should show categories panel")
+	assert.Contains(t, view, "Scripts", "Should show scripts panel")
+	assert.Contains(t, view, "Details", "Should show details panel")
+	assert.Contains(t, view, "deploy", "Should show script name")
+}
+
+func TestAppModel_ViewRendering_TwoPanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy to production"},
+		}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 2-panel mode (80-119 cols)
+	msg := tea.WindowSizeMsg{Width: 100, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	assert.Equal(t, LayoutTwoPanel, m.layoutMode)
+	view := m.View()
+
+	// Should contain sidebar and scripts panels
+	assert.Contains(t, view, "Categories", "Should show categories panel")
+	assert.Contains(t, view, "Scripts", "Should show scripts panel")
+	assert.Contains(t, view, "deploy", "Should show script name")
+}
+
+func TestAppModel_ViewRendering_OnePanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy to production"},
+		}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 1-panel mode (<80 cols)
+	msg := tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	assert.Equal(t, LayoutOnePanel, m.layoutMode)
+	view := m.View()
+
+	// Should show scripts and category header
+	assert.Contains(t, view, "deploy", "Should show script name")
+	assert.Contains(t, view, "tap", "Should show app header")
+}
+
+func TestAppModel_ViewRendering_BoundaryWidths(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+
+	tests := []struct {
+		width          int
+		expectedLayout LayoutMode
+		description    string
+	}{
+		{120, LayoutThreePanel, "exactly 120 cols (3-panel boundary)"},
+		{119, LayoutTwoPanel, "119 cols (just under 3-panel boundary)"},
+		{80, LayoutTwoPanel, "exactly 80 cols (2-panel boundary)"},
+		{79, LayoutOnePanel, "79 cols (just under 2-panel boundary)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			model := NewAppModel(categories)
+			msg := tea.WindowSizeMsg{Width: tt.width, Height: 24}
+			updated, _ := model.Update(msg)
+			m := updated.(AppModel)
+
+			assert.Equal(t, tt.expectedLayout, m.layoutMode,
+				"Width %d should result in %v layout", tt.width, tt.expectedLayout)
+
+			// Verify view renders without panic
+			view := m.View()
+			assert.NotEmpty(t, view, "View should render at width %d", tt.width)
+		})
+	}
+}
+
+func TestAppModel_ViewRendering_ExtremeWidths(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+
+	tests := []struct {
+		width       int
+		height      int
+		description string
+	}{
+		{20, 10, "very narrow terminal (20 cols)"},
+		{40, 15, "narrow terminal (40 cols)"},
+		{200, 50, "very wide terminal (200 cols)"},
+		{300, 80, "extremely wide terminal (300 cols)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			model := NewAppModel(categories)
+			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
+			updated, _ := model.Update(msg)
+			m := updated.(AppModel)
+
+			// Should not panic and should render something
+			view := m.View()
+			assert.NotEmpty(t, view, "View should render at %dx%d", tt.width, tt.height)
+			assert.NotContains(t, view, "panic", "View should not contain panic message")
+		})
+	}
+}
+
+func TestAppModel_ViewRendering_MinimumHeight(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+
+	tests := []struct {
+		height      int
+		description string
+	}{
+		{5, "very short terminal (5 rows)"},
+		{10, "minimum usable height (10 rows)"},
+		{15, "short terminal (15 rows)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			model := NewAppModel(categories)
+			msg := tea.WindowSizeMsg{Width: 100, Height: tt.height}
+			updated, _ := model.Update(msg)
+			m := updated.(AppModel)
+
+			// Should render without panic
+			view := m.View()
+			assert.NotEmpty(t, view, "View should render at height %d", tt.height)
+		})
+	}
+}
+
+func TestAppModel_PanelSizes_ThreePanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 3-panel mode
+	msg := tea.WindowSizeMsg{Width: 140, Height: 30}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// Verify panels have reasonable sizes
+	sidebarWidth := m.sidebar.width
+	scriptsWidth := m.scriptsPane.width
+	detailsWidth := m.detailsPane.width
+
+	assert.Greater(t, sidebarWidth, 0, "Sidebar should have positive width")
+	assert.Greater(t, scriptsWidth, 0, "Scripts should have positive width")
+	assert.Greater(t, detailsWidth, 0, "Details should have positive width")
+
+	// Total should approximately equal terminal width (with gaps)
+	totalWidth := sidebarWidth + scriptsWidth + detailsWidth
+	assert.LessOrEqual(t, totalWidth, 140, "Panel widths should not exceed terminal width")
+}
+
+func TestAppModel_PanelSizes_TwoPanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 2-panel mode
+	msg := tea.WindowSizeMsg{Width: 100, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// In 2-panel mode, details should be hidden (size 0)
+	assert.Greater(t, m.sidebar.width, 0, "Sidebar should have positive width")
+	assert.Greater(t, m.scriptsPane.width, 0, "Scripts should have positive width")
+	assert.Equal(t, 0, m.detailsPane.width, "Details should be hidden in 2-panel mode")
+}
+
+func TestAppModel_PanelSizes_OnePanelMode(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Resize to 1-panel mode
+	msg := tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// In 1-panel mode, only scripts should be visible
+	assert.Equal(t, 0, m.sidebar.width, "Sidebar should be hidden in 1-panel mode")
+	assert.Greater(t, m.scriptsPane.width, 0, "Scripts should have positive width")
+	assert.Equal(t, 0, m.detailsPane.width, "Details should be hidden in 1-panel mode")
+}
+
+func TestAppModel_FooterHintsChangeWithLayout(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// In 3-panel mode, footer should show tab for panel switching
+	msg := tea.WindowSizeMsg{Width: 140, Height: 30}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+	view := m.View()
+	assert.Contains(t, view, "tab", "3-panel mode should show tab hint")
+
+	// In 1-panel mode, footer should NOT show tab (no panel switching)
+	msg = tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ = m.Update(msg)
+	m = updated.(AppModel)
+
+	// Check footer context
+	assert.Equal(t, LayoutOnePanel, m.layoutMode)
+}
+
+func TestAppModel_ResizeDuringFilter(t *testing.T) {
+	categories := []core.Category{
+		{Name: "deployment", Scripts: []core.Script{
+			{Name: "deploy", Description: "Deploy to production"},
+			{Name: "rollback", Description: "Rollback deployment"},
+		}},
+	}
+	model := NewAppModel(categories)
+
+	// Activate filter
+	filterMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	updated, _ := model.Update(filterMsg)
+	m := updated.(AppModel)
+	assert.Equal(t, StateFilter, m.State())
+
+	// Resize while in filter mode
+	resizeMsg := tea.WindowSizeMsg{Width: 60, Height: 24}
+	updated, _ = m.Update(resizeMsg)
+	m = updated.(AppModel)
+
+	// Should still be in filter state
+	assert.Equal(t, StateFilter, m.State())
+
+	// View should still show filter overlay
+	view := m.View()
+	assert.Contains(t, view, "Filter", "Should still show filter overlay after resize")
+}
+
+func TestAppModel_ResizeDuringHelp(t *testing.T) {
+	categories := []core.Category{
+		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},
+	}
+	model := NewAppModel(categories)
+
+	// Open help
+	helpMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
+	updated, _ := model.Update(helpMsg)
+	m := updated.(AppModel)
+	assert.Equal(t, StateHelp, m.State())
+
+	// Resize while in help state
+	resizeMsg := tea.WindowSizeMsg{Width: 100, Height: 30}
+	updated, _ = m.Update(resizeMsg)
+	m = updated.(AppModel)
+
+	// Should still be in help state
+	assert.Equal(t, StateHelp, m.State())
+
+	// View should still show help
+	view := m.View()
+	assert.Contains(t, view, "Keyboard Shortcuts", "Should still show help after resize")
+}
