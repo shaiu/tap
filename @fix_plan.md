@@ -247,13 +247,18 @@ _(in progress)_
   - Spec: specs/08-ui-design.md#details-panel
 
 ### Footer & Help
-- [ ] Refactor footer bar ← CURRENT
+- [x] Refactor footer bar ← DONE
   - Single-line format
   - Key (highlighted) + action (dimmed) pairs
   - Context-aware hints based on state
+  - Created internal/tui/footer.go with FooterModel, FooterContext, KeyHint
+  - Footer shows different hints based on state (Browsing, Filter, Help, Form)
+  - Context-aware actions (select vs run based on panel)
+  - Shows params hint when selected script has parameters
+  - Added comprehensive tests in footer_test.go
   - Spec: specs/08-ui-design.md#footer-bar
 
-- [ ] Improve help overlay
+- [ ] Improve help overlay ← CURRENT
   - Categorized keybinding sections
   - Styled with theme colors
   - ? to toggle

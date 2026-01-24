@@ -101,6 +101,9 @@ type AppModel struct {
 	activePanel Panel
 	layoutMode  LayoutMode
 
+	// Footer
+	footer FooterModel
+
 	// Form (for parameter input)
 	formModel FormModel
 
@@ -145,6 +148,16 @@ func NewAppModel(categories []core.Category) AppModel {
 	scriptsPane := NewScriptsModel()
 	detailsPane := NewDetailsModel()
 
+	// Create footer
+	footer := NewFooterModel()
+	footer.SetWidth(width)
+	footer.SetContext(FooterContext{
+		State:       state,
+		ActivePanel: PanelSidebar,
+		LayoutMode:  layoutMode,
+		HasParams:   false,
+	})
+
 	// Initialize scripts based on sidebar selection
 	if len(categories) > 0 {
 		// Start with "All Scripts" selected
@@ -165,6 +178,7 @@ func NewAppModel(categories []core.Category) AppModel {
 		detailsPane:    detailsPane,
 		activePanel:    PanelSidebar,
 		layoutMode:     layoutMode,
+		footer:         footer,
 		filterInput:    fi,
 		selectedCatIdx: -1,
 		width:          width,
@@ -254,6 +268,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update panel sizes based on layout mode
 		m.updatePanelSizes()
 
+		// Update footer context (layout may have changed)
+		m.updateFooterContext()
+
 		if m.state == StateForm {
 			model, cmd := m.formModel.Update(msg)
 			if fm, ok := model.(FormModel); ok {
@@ -322,6 +339,7 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.state != StateFilter && m.state != StateHelp {
 			m.prevState = m.state
 			m.state = StateHelp
+			m.updateFooterContext()
 			return m, nil
 		}
 	}
@@ -358,6 +376,7 @@ func (m AppModel) updateBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Filter):
 		m.prevState = m.state
 		m.state = StateFilter
+		m.updateFooterContext()
 		m.filterInput.SetValue("")
 		m.filterInput.Focus()
 		return m, textinput.Blink
@@ -380,6 +399,7 @@ func (m *AppModel) switchToNextPanel() {
 	m.activePanel = Panel((int(m.activePanel) + 1) % (int(maxPanel) + 1))
 
 	m.setActivePanelFocused()
+	m.updateFooterContext()
 }
 
 // switchToPrevPanel moves focus to the previous panel.
@@ -394,6 +414,7 @@ func (m *AppModel) switchToPrevPanel() {
 	}
 
 	m.setActivePanelFocused()
+	m.updateFooterContext()
 }
 
 // maxPanelForLayout returns the max panel index for the current layout.
@@ -498,6 +519,8 @@ func (m AppModel) updateActivePanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.detailsPane.SetScript(nil)
 		}
+		// Update footer (hasParams may have changed)
+		m.updateFooterContext()
 
 	case PanelScripts:
 		m.scriptsPane, cmd = m.scriptsPane.Update(msg)
@@ -507,6 +530,8 @@ func (m AppModel) updateActivePanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.detailsPane.SetScript(nil)
 		}
+		// Update footer (hasParams may have changed)
+		m.updateFooterContext()
 
 	case PanelDetails:
 		m.detailsPane, cmd = m.detailsPane.Update(msg)
@@ -585,6 +610,7 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Confirm filter - keep filtered results and exit filter mode
 		m.filterInput.Blur()
 		m.state = m.prevState
+		m.updateFooterContext()
 		return m, nil
 	case tea.KeyEscape:
 		// Cancel filter - restore full list and exit filter mode
@@ -593,6 +619,7 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.menu.ClearFilter()
 		m.scriptsPane.ClearFilter()
 		m.state = m.prevState
+		m.updateFooterContext()
 		return m, nil
 	}
 
@@ -608,9 +635,10 @@ func (m AppModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateHelp handles input in the help state.
-func (m AppModel) updateHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m AppModel) updateHelp(_ tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Any key exits help
 	m.state = m.prevState
+	m.updateFooterContext()
 	return m, nil
 }
 
@@ -694,26 +722,23 @@ func (m AppModel) renderOnePanel() string {
 
 // renderBrowsingFooter renders the footer for browsing mode.
 func (m AppModel) renderBrowsingFooter() string {
-	var hints []string
-
-	hints = append(hints, m.formatHint("↑↓", "navigate"))
-	hints = append(hints, m.formatHint("enter", "select"))
-
-	// Show tab hint if we have multiple panels
-	if m.layoutMode != LayoutOnePanel {
-		hints = append(hints, m.formatHint("tab", "panel"))
-	}
-
-	hints = append(hints, m.formatHint("/", "filter"))
-	hints = append(hints, m.formatHint("?", "help"))
-	hints = append(hints, m.formatHint("q", "quit"))
-
-	return Styles.Footer.Render(strings.Join(hints, "  "))
+	return m.footer.View()
 }
 
-// formatHint formats a key hint with styled key and action.
-func (m AppModel) formatHint(key, action string) string {
-	return Styles.Key.Render(key) + " " + Styles.Action.Render(action)
+// updateFooterContext updates the footer context based on current state.
+func (m *AppModel) updateFooterContext() {
+	hasParams := false
+	if script := m.scriptsPane.SelectedScript(); script != nil {
+		hasParams = len(script.Parameters) > 0
+	}
+
+	m.footer.SetContext(FooterContext{
+		State:       m.state,
+		ActivePanel: m.activePanel,
+		LayoutMode:  m.layoutMode,
+		HasParams:   hasParams,
+	})
+	m.footer.SetWidth(m.width)
 }
 
 // renderFilterView renders the view with the filter input overlay.
@@ -750,7 +775,7 @@ func (m AppModel) renderFilterView() string {
 
 	// Footer
 	s.WriteString("\n")
-	s.WriteString(Styles.Footer.Render("enter select  esc cancel"))
+	s.WriteString(FilterFooter(m.width))
 
 	return s.String()
 }
