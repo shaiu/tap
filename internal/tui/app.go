@@ -332,14 +332,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.formModel = NewFormModel(msg.Script, m.width, m.height)
 			return m, m.formModel.Init()
 		}
-		// No params - execute directly
+		// No params - execute directly with brief feedback
 		m.selectedScript = &msg.Script
+		m.footer.SetFeedback(FeedbackRunning, "Running "+msg.Script.Name+"...")
 		return m, tea.Quit
 
 	case FormSubmittedMsg:
-		// Form completed - execute with parameters
+		// Form completed - execute with parameters and brief feedback
 		m.selectedScript = &msg.Script
 		m.selectedParams = msg.Parameters
+		m.footer.SetFeedback(FeedbackRunning, "Running "+msg.Script.Name+"...")
 		return m, tea.Quit
 
 	case FormCancelledMsg:
@@ -349,6 +351,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ErrorMsg:
 		m.err = msg.Err
+		// Show error in footer
+		m.footer.SetFeedback(FeedbackError, msg.Err.Error())
+		return m, ClearFeedbackAfter(FeedbackDuration)
+
+	case FeedbackMsg:
+		m.footer.SetFeedback(msg.Type, msg.Message)
+		return m, ClearFeedbackAfter(FeedbackDuration)
+
+	case ClearFeedbackMsg:
+		m.footer.ClearFeedback()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -568,8 +580,9 @@ func (m AppModel) handlePanelSelect() (tea.Model, tea.Cmd) {
 				m.formModel = NewFormModel(*script, m.width, m.height)
 				return m, m.formModel.Init()
 			}
-			// No params - execute directly
+			// No params - execute directly with brief feedback
 			m.selectedScript = script
+			m.footer.SetFeedback(FeedbackRunning, "Running "+script.Name+"...")
 			return m, tea.Quit
 		}
 		return m, nil
@@ -582,7 +595,9 @@ func (m AppModel) handlePanelSelect() (tea.Model, tea.Cmd) {
 				m.formModel = NewFormModel(*script, m.width, m.height)
 				return m, m.formModel.Init()
 			}
+			// Run with brief feedback
 			m.selectedScript = script
+			m.footer.SetFeedback(FeedbackRunning, "Running "+script.Name+"...")
 			return m, tea.Quit
 		}
 		return m, nil

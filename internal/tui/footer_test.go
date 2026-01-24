@@ -468,3 +468,137 @@ func TestFooterModel_TwoPanelLayout(t *testing.T) {
 		t.Error("expected 'tab' hint in two-panel layout")
 	}
 }
+
+// Tests for feedback functionality
+
+func TestFooterModel_SetFeedback(t *testing.T) {
+	m := NewFooterModel()
+
+	// Initially no feedback
+	if m.HasFeedback() {
+		t.Error("expected no feedback initially")
+	}
+
+	// Set success feedback
+	m.SetFeedback(FeedbackSuccess, "Script completed")
+	if !m.HasFeedback() {
+		t.Error("expected feedback after SetFeedback")
+	}
+	if m.feedbackType != FeedbackSuccess {
+		t.Errorf("expected FeedbackSuccess, got %v", m.feedbackType)
+	}
+	if m.feedbackMsg != "Script completed" {
+		t.Errorf("expected 'Script completed', got %q", m.feedbackMsg)
+	}
+}
+
+func TestFooterModel_ClearFeedback(t *testing.T) {
+	m := NewFooterModel()
+	m.SetFeedback(FeedbackError, "Something went wrong")
+
+	if !m.HasFeedback() {
+		t.Error("expected feedback to be set")
+	}
+
+	m.ClearFeedback()
+
+	if m.HasFeedback() {
+		t.Error("expected no feedback after ClearFeedback")
+	}
+	if m.feedbackType != FeedbackNone {
+		t.Errorf("expected FeedbackNone, got %v", m.feedbackType)
+	}
+	if m.feedbackMsg != "" {
+		t.Errorf("expected empty message, got %q", m.feedbackMsg)
+	}
+}
+
+func TestFooterModel_View_WithFeedback(t *testing.T) {
+	m := NewFooterModel()
+	m.SetWidth(80)
+
+	tests := []struct {
+		name         string
+		feedbackType FeedbackType
+		message      string
+		expectIcon   string
+	}{
+		{
+			name:         "success feedback",
+			feedbackType: FeedbackSuccess,
+			message:      "Done",
+			expectIcon:   Icons.Success,
+		},
+		{
+			name:         "error feedback",
+			feedbackType: FeedbackError,
+			message:      "Failed",
+			expectIcon:   Icons.Error,
+		},
+		{
+			name:         "running feedback",
+			feedbackType: FeedbackRunning,
+			message:      "Running...",
+			expectIcon:   Icons.Running,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m.SetFeedback(tt.feedbackType, tt.message)
+			view := m.View()
+
+			if !strings.Contains(view, tt.expectIcon) {
+				t.Errorf("expected view to contain icon %q", tt.expectIcon)
+			}
+			if !strings.Contains(view, tt.message) {
+				t.Errorf("expected view to contain message %q", tt.message)
+			}
+		})
+	}
+}
+
+func TestFooterModel_View_WithoutFeedback_ShowsHints(t *testing.T) {
+	m := NewFooterModel()
+	m.SetWidth(80)
+	m.SetContext(FooterContext{
+		State:       StateBrowsing,
+		ActivePanel: PanelScripts,
+		LayoutMode:  LayoutThreePanel,
+	})
+
+	// No feedback set - should show hints
+	view := m.View()
+
+	// Should contain hint text, not feedback
+	if !strings.Contains(view, "navigate") {
+		t.Error("expected hints to be shown when no feedback")
+	}
+	if !strings.Contains(view, "run") {
+		t.Error("expected hints to be shown when no feedback")
+	}
+}
+
+func TestFeedbackTypes(t *testing.T) {
+	// Verify feedback type constants
+	if FeedbackNone != 0 {
+		t.Error("FeedbackNone should be 0")
+	}
+	if FeedbackSuccess == FeedbackNone {
+		t.Error("FeedbackSuccess should not equal FeedbackNone")
+	}
+	if FeedbackError == FeedbackNone {
+		t.Error("FeedbackError should not equal FeedbackNone")
+	}
+	if FeedbackRunning == FeedbackNone {
+		t.Error("FeedbackRunning should not equal FeedbackNone")
+	}
+}
+
+func TestClearFeedbackAfter(t *testing.T) {
+	// Test that ClearFeedbackAfter returns a valid command
+	cmd := ClearFeedbackAfter(FeedbackDuration)
+	if cmd == nil {
+		t.Error("ClearFeedbackAfter should return a non-nil command")
+	}
+}

@@ -2,9 +2,33 @@ package tui
 
 import (
 	"strings"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// FeedbackType represents the type of feedback message.
+type FeedbackType int
+
+const (
+	FeedbackNone FeedbackType = iota
+	FeedbackSuccess
+	FeedbackError
+	FeedbackRunning
+)
+
+// FeedbackMsg is sent to display a temporary feedback message.
+type FeedbackMsg struct {
+	Type    FeedbackType
+	Message string
+}
+
+// ClearFeedbackMsg is sent to clear the feedback message.
+type ClearFeedbackMsg struct{}
+
+// FeedbackDuration is how long feedback messages are displayed.
+const FeedbackDuration = 2 * time.Second
 
 // FooterContext represents the current context for displaying footer hints.
 type FooterContext struct {
@@ -22,8 +46,10 @@ type KeyHint struct {
 
 // FooterModel manages the footer bar display.
 type FooterModel struct {
-	context FooterContext
-	width   int
+	context      FooterContext
+	width        int
+	feedbackType FeedbackType
+	feedbackMsg  string
 }
 
 // NewFooterModel creates a new footer model.
@@ -47,6 +73,30 @@ func (m *FooterModel) SetContext(ctx FooterContext) {
 // SetWidth sets the footer width.
 func (m *FooterModel) SetWidth(width int) {
 	m.width = width
+}
+
+// SetFeedback sets a temporary feedback message.
+func (m *FooterModel) SetFeedback(feedbackType FeedbackType, message string) {
+	m.feedbackType = feedbackType
+	m.feedbackMsg = message
+}
+
+// ClearFeedback removes the feedback message.
+func (m *FooterModel) ClearFeedback() {
+	m.feedbackType = FeedbackNone
+	m.feedbackMsg = ""
+}
+
+// HasFeedback returns true if there's an active feedback message.
+func (m FooterModel) HasFeedback() bool {
+	return m.feedbackType != FeedbackNone
+}
+
+// ClearFeedbackAfter returns a command that clears feedback after the duration.
+func ClearFeedbackAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg {
+		return ClearFeedbackMsg{}
+	})
 }
 
 // hintsForContext returns the appropriate hints for the current context.
@@ -159,8 +209,37 @@ func (m FooterModel) defaultHints() []KeyHint {
 
 // View renders the footer bar.
 func (m FooterModel) View() string {
+	// If there's feedback, show it instead of/alongside hints
+	if m.feedbackType != FeedbackNone {
+		return m.renderFeedback()
+	}
+
 	hints := m.hintsForContext()
 	return m.renderHints(hints)
+}
+
+// renderFeedback renders the feedback message with appropriate styling.
+func (m FooterModel) renderFeedback() string {
+	var icon string
+	var style lipgloss.Style
+
+	switch m.feedbackType {
+	case FeedbackSuccess:
+		icon = Icons.Success
+		style = Styles.FeedbackSuccess
+	case FeedbackError:
+		icon = Icons.Error
+		style = Styles.FeedbackError
+	case FeedbackRunning:
+		icon = Icons.Running
+		style = Styles.FeedbackRunning
+	default:
+		return m.renderHints(m.hintsForContext())
+	}
+
+	content := style.Render(icon + " " + m.feedbackMsg)
+
+	return Styles.Footer.Width(m.width).Render(content)
 }
 
 // renderHints formats the hints as a styled footer line.

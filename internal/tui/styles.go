@@ -35,9 +35,14 @@ var Styles = struct {
 	FilterCount lipgloss.Style
 
 	// Filter overlay styles (for dimming non-matches)
-	ItemDimmed     lipgloss.Style // Non-matching items during filtering
-	ItemMatch      lipgloss.Style // Matching items during filtering (highlighted)
-	ItemMatchDesc  lipgloss.Style // Description of matching items
+	ItemDimmed    lipgloss.Style // Non-matching items during filtering
+	ItemMatch     lipgloss.Style // Matching items during filtering (highlighted)
+	ItemMatchDesc lipgloss.Style // Description of matching items
+
+	// Feedback styles (for action success/error messages in footer)
+	FeedbackSuccess lipgloss.Style // Success message (green)
+	FeedbackError   lipgloss.Style // Error message (red)
+	FeedbackRunning lipgloss.Style // Running indicator (primary)
 }{
 	Header: lipgloss.NewStyle().
 		Bold(true).
@@ -135,4 +140,17 @@ var Styles = struct {
 	// Description of matching items
 	ItemMatchDesc: lipgloss.NewStyle().
 		Foreground(Theme.Subtle),
+
+	// Feedback styles for footer messages
+	FeedbackSuccess: lipgloss.NewStyle().
+		Foreground(Theme.Success).
+		Bold(true),
+
+	FeedbackError: lipgloss.NewStyle().
+		Foreground(Theme.Error).
+		Bold(true),
+
+	FeedbackRunning: lipgloss.NewStyle().
+		Foreground(Theme.Primary).
+		Bold(true),
 }

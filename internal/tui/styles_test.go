@@ -28,6 +28,14 @@ func TestStyles_AllStylesAreDefined(t *testing.T) {
 		{"ItemDesc", Styles.ItemDesc},
 		{"Key", Styles.Key},
 		{"Action", Styles.Action},
+		{"FilterQuery", Styles.FilterQuery},
+		{"FilterCount", Styles.FilterCount},
+		{"ItemDimmed", Styles.ItemDimmed},
+		{"ItemMatch", Styles.ItemMatch},
+		{"ItemMatchDesc", Styles.ItemMatchDesc},
+		{"FeedbackSuccess", Styles.FeedbackSuccess},
+		{"FeedbackError", Styles.FeedbackError},
+		{"FeedbackRunning", Styles.FeedbackRunning},
 	}
 
 	for _, s := range styles {
@@ -102,4 +110,37 @@ func TestStyles_FooterHints(t *testing.T) {
 
 	assert.Contains(t, key, keyContent, "Key should contain the content")
 	assert.Contains(t, action, actionContent, "Action should contain the content")
+}
+
+func TestStyles_FeedbackStyles(t *testing.T) {
+	// Test that feedback styles render content properly
+	testCases := []struct {
+		name    string
+		style   func() string
+		content string
+	}{
+		{
+			name:    "FeedbackSuccess",
+			style:   func() string { return Styles.FeedbackSuccess.Render("Script completed") },
+			content: "Script completed",
+		},
+		{
+			name:    "FeedbackError",
+			style:   func() string { return Styles.FeedbackError.Render("Error occurred") },
+			content: "Error occurred",
+		},
+		{
+			name:    "FeedbackRunning",
+			style:   func() string { return Styles.FeedbackRunning.Render("Running...") },
+			content: "Running...",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.style()
+			assert.Contains(t, result, tc.content, "%s should contain the content", tc.name)
+			assert.NotEmpty(t, result, "%s should produce non-empty output", tc.name)
+		})
+	}
 }

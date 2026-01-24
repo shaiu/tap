@@ -296,11 +296,16 @@ _(in progress)_
   - Init() returns spinner.Tick when loading
   - Centered panel with rounded borders
 
-- [ ] Visual feedback for actions ← CURRENT
-  - Brief highlight on script run
-  - Error display in footer
+- [x] Visual feedback for actions ← DONE
+  - Brief highlight on script run (shows "Running <script>..." with icon before quit)
+  - Error display in footer (shows error with icon, auto-clears after 2s)
+  - Added FeedbackType enum, FeedbackMsg/ClearFeedbackMsg messages
+  - Added FeedbackSuccess, FeedbackError, FeedbackRunning styles
+  - FooterModel supports SetFeedback/ClearFeedback/HasFeedback
+  - ClearFeedbackAfter() returns tea.Cmd for timed clearing
+  - Comprehensive tests in footer_test.go and styles_test.go
 
-- [ ] Test on various terminal sizes
+- [ ] Test on various terminal sizes ← CURRENT
   - Verify responsive breakpoints
   - Check color rendering in different terminals
 
