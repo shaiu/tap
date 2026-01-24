@@ -237,15 +237,17 @@ _(in progress)_
   - Added scripts_test.go with comprehensive tests
   - Spec: specs/08-ui-design.md#scripts-panel
 
-- [ ] Implement details panel (NEW) ← CURRENT
+- [x] Implement details panel (NEW) ← DONE
   - Script name with icon
   - Full description (text wrapped)
   - Metadata: category, shell, path
   - Parameters list with types/defaults
+  - Tags section
+  - Comprehensive tests in details_test.go
   - Spec: specs/08-ui-design.md#details-panel
 
 ### Footer & Help
-- [ ] Refactor footer bar
+- [ ] Refactor footer bar ← CURRENT
   - Single-line format
   - Key (highlighted) + action (dimmed) pairs
   - Context-aware hints based on state
