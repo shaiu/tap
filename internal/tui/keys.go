@@ -41,12 +41,12 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("esc", "go back"),
 		),
 		NextPanel: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "next panel"),
+			key.WithKeys("tab", "right", "l"),
+			key.WithHelp("tab/→/l", "next panel"),
 		),
 		PrevPanel: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "prev panel"),
+			key.WithKeys("shift+tab", "left", "h"),
+			key.WithHelp("shift+tab/←/h", "prev panel"),
 		),
 		Filter: key.NewBinding(
 			key.WithKeys("/"),
