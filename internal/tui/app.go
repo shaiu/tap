@@ -222,10 +222,10 @@ func calculateLayoutMode(width int) LayoutMode {
 
 // updatePanelSizes calculates and sets panel sizes based on layout mode.
 func (m *AppModel) updatePanelSizes() {
-	// Reserve space for footer (2 lines)
-	contentHeight := m.height - 3
-	if contentHeight < 5 {
-		contentHeight = 5
+	// Reserve space for footer (FooterHeight + 1 for newline)
+	contentHeight := m.height - FooterHeight() - 1
+	if contentHeight < MinPanelHeight {
+		contentHeight = MinPanelHeight
 	}
 
 	switch m.layoutMode {
@@ -233,16 +233,19 @@ func (m *AppModel) updatePanelSizes() {
 		// 3-panel: sidebar (22%) | scripts (43%) | details (35%)
 		sidebarWidth := m.width * 22 / 100
 		detailsWidth := m.width * 35 / 100
-		scriptsWidth := m.width - sidebarWidth - detailsWidth - 2 // -2 for gaps
 
-		if sidebarWidth < 20 {
-			sidebarWidth = 20
+		// Enforce minimums
+		if sidebarWidth < MinPanelWidth {
+			sidebarWidth = MinPanelWidth
 		}
-		if detailsWidth < 25 {
-			detailsWidth = 25
+		if detailsWidth < MinPanelWidth+5 {
+			detailsWidth = MinPanelWidth + 5
 		}
-		if scriptsWidth < 25 {
-			scriptsWidth = m.width - sidebarWidth - detailsWidth - 2
+
+		// Scripts gets the remainder - no gap subtraction
+		scriptsWidth := m.width - sidebarWidth - detailsWidth
+		if scriptsWidth < MinPanelWidth+5 {
+			scriptsWidth = MinPanelWidth + 5
 		}
 
 		m.sidebar.SetSize(sidebarWidth, contentHeight)
@@ -252,13 +255,14 @@ func (m *AppModel) updatePanelSizes() {
 	case LayoutTwoPanel:
 		// 2-panel: sidebar (30%) | scripts (70%)
 		sidebarWidth := m.width * 30 / 100
-		scriptsWidth := m.width - sidebarWidth - 1
-
-		if sidebarWidth < 20 {
-			sidebarWidth = 20
+		if sidebarWidth < MinPanelWidth {
+			sidebarWidth = MinPanelWidth
 		}
-		if scriptsWidth < 30 {
-			scriptsWidth = m.width - sidebarWidth - 1
+
+		// Scripts gets the remainder - no gap subtraction
+		scriptsWidth := m.width - sidebarWidth
+		if scriptsWidth < MinPanelWidth+10 {
+			scriptsWidth = MinPanelWidth + 10
 		}
 
 		m.sidebar.SetSize(sidebarWidth, contentHeight)
@@ -267,7 +271,7 @@ func (m *AppModel) updatePanelSizes() {
 
 	case LayoutOnePanel:
 		// 1-panel: scripts only
-		m.sidebar.SetSize(0, 0)      // Hidden
+		m.sidebar.SetSize(0, 0) // Hidden
 		m.scriptsPane.SetSize(m.width, contentHeight)
 		m.detailsPane.SetSize(0, 0) // Hidden
 	}
@@ -878,8 +882,8 @@ func (m AppModel) renderThreePanels() string {
 	scriptsView := m.scriptsPane.View()
 	detailsView := m.detailsPane.View()
 
-	// Join panels horizontally
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, " ", scriptsView, " ", detailsView)
+	// Join panels horizontally - no gaps between panels
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, scriptsView, detailsView)
 }
 
 // renderTwoPanels renders the 2-panel layout (sidebar + scripts).
@@ -887,7 +891,8 @@ func (m AppModel) renderTwoPanels() string {
 	sidebarView := m.sidebar.View()
 	scriptsView := m.scriptsPane.View()
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, " ", scriptsView)
+	// Join panels horizontally - no gaps between panels
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebarView, scriptsView)
 }
 
 // renderOnePanel renders the single-panel layout (scripts only).

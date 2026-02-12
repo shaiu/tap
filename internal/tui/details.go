@@ -45,25 +45,34 @@ func (m DetailsModel) View() string {
 		panelStyle = Styles.PanelActive
 	}
 
-	// Build content
-	var content strings.Builder
+	// Calculate inner dimensions (content area)
+	innerWidth, innerHeight := InnerDimensions(m.width, m.height)
+	_ = innerWidth // Used in renderScriptDetails
 
-	// Title
+	// Build lines array
+	var lines []string
+
+	// Title (takes 2 lines: title + blank)
 	title := Styles.Title.Render(fmt.Sprintf("%s Details", Icons.Script))
-	content.WriteString(title)
-	content.WriteString("\n\n")
+	lines = append(lines, title)
+	lines = append(lines, "")
 
 	if m.script == nil {
-		content.WriteString(Styles.ItemDesc.Render("  Select a script to view details"))
+		lines = append(lines, Styles.ItemDesc.Render("  Select a script to view details"))
 	} else {
-		content.WriteString(m.renderScriptDetails())
+		// renderScriptDetails returns a multi-line string
+		details := m.renderScriptDetails()
+		detailLines := strings.Split(details, "\n")
+		lines = append(lines, detailLines...)
 	}
 
-	// Apply panel style
+	// Pad content to exact inner height
+	content := BuildPanelContent(lines, innerHeight)
+
+	// Apply panel style - only set Width, NOT Height
 	return panelStyle.
-		Width(m.width).
-		Height(m.height).
-		Render(content.String())
+		Width(m.width - BorderWidth).
+		Render(content)
 }
 
 // renderScriptDetails renders the full script information.

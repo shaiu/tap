@@ -166,45 +166,46 @@ func (m SidebarModel) View() string {
 		panelStyle = Styles.PanelActive
 	}
 
-	// Build content
-	var content strings.Builder
+	// Calculate inner dimensions (content area)
+	innerWidth, innerHeight := InnerDimensions(m.width, m.height)
+	_ = innerWidth // Used for future width constraints
 
-	// Title
+	// Build lines array
+	var lines []string
+
+	// Title (takes 2 lines: title + blank)
 	title := Styles.Title.Render(fmt.Sprintf("%s Categories", Icons.Category))
-	content.WriteString(title)
-	content.WriteString("\n\n")
+	lines = append(lines, title)
+	lines = append(lines, "")
 
-	// Visible height for items (accounting for title, padding, borders)
-	visibleHeight := m.height - 6
-	if visibleHeight < 3 {
-		visibleHeight = 3
+	// Available height for items (inner height minus title lines)
+	itemAreaHeight := innerHeight - 2
+	if itemAreaHeight < 1 {
+		itemAreaHeight = 1
 	}
 
 	// Calculate scroll offset to keep cursor visible
 	scrollOffset := 0
-	if m.cursor >= visibleHeight {
-		scrollOffset = m.cursor - visibleHeight + 1
+	if m.cursor >= itemAreaHeight {
+		scrollOffset = m.cursor - itemAreaHeight + 1
 	}
 
 	// Render visible items
-	for i := scrollOffset; i < len(m.items) && i < scrollOffset+visibleHeight; i++ {
+	for i := scrollOffset; i < len(m.items) && i < scrollOffset+itemAreaHeight; i++ {
 		item := m.items[i]
-		content.WriteString(m.renderItem(item, i == m.cursor))
-		if i < len(m.items)-1 && i < scrollOffset+visibleHeight-1 {
-			content.WriteString("\n")
-		}
+		rendered := m.renderItem(item, i == m.cursor)
+		// renderItem may return multiple lines for pinned header
+		itemLines := strings.Split(rendered, "\n")
+		lines = append(lines, itemLines...)
 	}
 
-	// Apply panel style
-	innerWidth := m.width - 4 // Account for border and padding
-	if innerWidth < 10 {
-		innerWidth = 10
-	}
+	// Pad content to exact inner height
+	content := BuildPanelContent(lines, innerHeight)
 
+	// Apply panel style - only set Width, NOT Height
 	return panelStyle.
-		Width(m.width).
-		Height(m.height).
-		Render(content.String())
+		Width(m.width - BorderWidth).
+		Render(content)
 }
 
 // renderItem renders a single sidebar item.

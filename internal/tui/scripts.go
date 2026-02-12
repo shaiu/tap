@@ -73,23 +73,30 @@ func (m ScriptsModel) View() string {
 		panelStyle = Styles.PanelActive
 	}
 
-	// Build content
-	var content strings.Builder
+	// Calculate inner dimensions (content area)
+	innerWidth, innerHeight := InnerDimensions(m.width, m.height)
+	_ = innerWidth // Used for future width constraints
 
-	// Title
+	// Build lines array
+	var lines []string
+
+	// Title (takes 1 line)
 	title := Styles.Title.Render(fmt.Sprintf("%s Scripts", Icons.Script))
-	content.WriteString(title)
-	content.WriteString("\n")
+	lines = append(lines, title)
+
+	// Track header lines for item area calculation
+	headerLines := 1
 
 	// Filter bar (shown when filter is active but NOT in overlay mode)
-	headerLines := 2 // title + newline
 	if m.filterQuery != "" && !m.filterMode {
 		filterBar := m.renderFilterBar()
-		content.WriteString(filterBar)
-		content.WriteString("\n")
-		headerLines = 3 // title + filter bar + newline
+		lines = append(lines, filterBar)
+		headerLines++
 	}
-	content.WriteString("\n")
+
+	// Blank line after header
+	lines = append(lines, "")
+	headerLines++
 
 	// In filter mode, show ALL scripts with non-matches dimmed
 	// Otherwise, show filtered list
@@ -97,40 +104,49 @@ func (m ScriptsModel) View() string {
 
 	if len(list) == 0 {
 		if m.filterQuery != "" {
-			content.WriteString(Styles.ItemDesc.Render("  No matching scripts"))
+			lines = append(lines, Styles.ItemDesc.Render("  No matching scripts"))
 		} else {
-			content.WriteString(Styles.ItemDesc.Render("  No scripts found"))
+			lines = append(lines, Styles.ItemDesc.Render("  No scripts found"))
 		}
 	} else {
-		// Visible height for items (accounting for title, filter bar, padding, borders)
-		// Each item takes 3 lines (name, desc, spacing)
-		visibleHeight := (m.height - headerLines - 4) / 3
-		if visibleHeight < 1 {
-			visibleHeight = 1
+		// Available height for items (each item takes 2 lines: name + desc)
+		itemAreaHeight := innerHeight - headerLines
+		if itemAreaHeight < 2 {
+			itemAreaHeight = 2
+		}
+		// Number of items that fit (2 lines per item + 1 blank between items = 3 lines)
+		visibleItems := itemAreaHeight / 3
+		if visibleItems < 1 {
+			visibleItems = 1
 		}
 
 		// Calculate scroll offset to keep cursor visible
 		scrollOffset := 0
-		if m.cursor >= visibleHeight {
-			scrollOffset = m.cursor - visibleHeight + 1
+		if m.cursor >= visibleItems {
+			scrollOffset = m.cursor - visibleItems + 1
 		}
 
 		// Render visible items
-		for i := scrollOffset; i < len(list) && i < scrollOffset+visibleHeight; i++ {
+		for i := scrollOffset; i < len(list) && i < scrollOffset+visibleItems; i++ {
 			script := list[i]
 			isMatch := m.IsMatched(i)
-			content.WriteString(m.renderItemWithFilter(script, i == m.cursor, isMatch))
-			if i < len(list)-1 && i < scrollOffset+visibleHeight-1 {
-				content.WriteString("\n\n")
+			rendered := m.renderItemWithFilter(script, i == m.cursor, isMatch)
+			itemLines := strings.Split(rendered, "\n")
+			lines = append(lines, itemLines...)
+			// Add blank line between items (but not after last)
+			if i < len(list)-1 && i < scrollOffset+visibleItems-1 {
+				lines = append(lines, "")
 			}
 		}
 	}
 
-	// Apply panel style
+	// Pad content to exact inner height
+	content := BuildPanelContent(lines, innerHeight)
+
+	// Apply panel style - only set Width, NOT Height
 	return panelStyle.
-		Width(m.width).
-		Height(m.height).
-		Render(content.String())
+		Width(m.width - BorderWidth).
+		Render(content)
 }
 
 // displayListForView returns the list to display for rendering.
