@@ -354,9 +354,9 @@ func TestGenerateScript_WithParams(t *testing.T) {
 	assert.Contains(t, contentStr, "type: int")
 	assert.Contains(t, contentStr, "default: 10")
 
-	// Check env var comments
-	assert.Contains(t, contentStr, "$TAP_PARAM_ENV")
-	assert.Contains(t, contentStr, "$TAP_PARAM_COUNT")
+	// Check env var fallback patterns
+	assert.Contains(t, contentStr, "${TAP_PARAM_ENV:-}")
+	assert.Contains(t, contentStr, "${TAP_PARAM_COUNT:-10}")
 }
 
 func TestGenerateScript_ExistingFile_Headless(t *testing.T) {
@@ -488,6 +488,108 @@ func TestRunNewHeadless_WithParams(t *testing.T) {
 	assert.Contains(t, contentStr, "required: true")
 	assert.Contains(t, contentStr, "- name: count")
 	assert.Contains(t, contentStr, "default: 5")
+}
+
+func TestGenerateScript_BashWithFallbackPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "fallback.sh")
+
+	cfg := NewScriptConfig{
+		Name:        "fallback-test",
+		Description: "Test fallback patterns",
+		Shell:       "bash",
+		OutputPath:  outputPath,
+		Parameters: []ParameterConfig{
+			{
+				Name:     "name",
+				Type:     "string",
+				Required: true,
+			},
+			{
+				Name:    "count",
+				Type:    "int",
+				Default: "10",
+			},
+			{
+				Name:    "verbose",
+				Type:    "bool",
+				Default: "false",
+			},
+		},
+	}
+
+	err := generateScript(cfg, true)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// Check fallback patterns with ${VAR:-default}
+	assert.Contains(t, contentStr, `NAME="${TAP_PARAM_NAME:-}"`, "Required param without default should have empty fallback")
+	assert.Contains(t, contentStr, `COUNT="${TAP_PARAM_COUNT:-10}"`, "Optional param should have default in fallback")
+	assert.Contains(t, contentStr, `VERBOSE="${TAP_PARAM_VERBOSE:-false}"`, "Bool param should have default in fallback")
+
+	// Check validation for required params without defaults
+	assert.Contains(t, contentStr, `if [[ -z "$NAME" ]]; then`)
+	assert.Contains(t, contentStr, `echo "Error: name is required"`)
+
+	// Count should NOT have validation (has default)
+	assert.NotContains(t, contentStr, `if [[ -z "$COUNT" ]]; then`)
+}
+
+func TestGenerateScript_PythonWithFallbackPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "fallback.py")
+
+	cfg := NewScriptConfig{
+		Name:        "fallback-test",
+		Description: "Test Python fallback patterns",
+		Shell:       "python",
+		OutputPath:  outputPath,
+		Parameters: []ParameterConfig{
+			{
+				Name:     "name",
+				Type:     "string",
+				Required: true,
+			},
+			{
+				Name:    "count",
+				Type:    "int",
+				Default: "10",
+			},
+			{
+				Name:    "debug",
+				Type:    "bool",
+				Default: "false",
+			},
+			{
+				Name:    "threshold",
+				Type:    "float",
+				Default: "0.5",
+			},
+		},
+	}
+
+	err := generateScript(cfg, true)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// Check typed fallback patterns
+	assert.Contains(t, contentStr, `name = os.environ.get("TAP_PARAM_NAME", "")`, "String param should use os.environ.get")
+	assert.Contains(t, contentStr, `count = int(os.environ.get("TAP_PARAM_COUNT", "10"))`, "Int param should wrap with int()")
+	assert.Contains(t, contentStr, `debug = os.environ.get("TAP_PARAM_DEBUG", "false").lower() in ("true", "1", "yes")`, "Bool param should use .lower() check")
+	assert.Contains(t, contentStr, `threshold = float(os.environ.get("TAP_PARAM_THRESHOLD", "0.5"))`, "Float param should wrap with float()")
+
+	// Check validation for required params without defaults
+	assert.Contains(t, contentStr, `if not name:`)
+	assert.Contains(t, contentStr, `print("Error: name is required", file=sys.stderr)`)
+
+	// Count should NOT have validation (has default)
+	assert.NotContains(t, contentStr, `if not count:`)
 }
 
 func TestBuildCategoryOptions(t *testing.T) {

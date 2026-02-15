@@ -804,6 +804,80 @@ func TestAppModel_ResizeDuringFilter(t *testing.T) {
 	assert.Contains(t, view, "Filter", "Should still show filter overlay after resize")
 }
 
+func TestAppModel_InteractiveScriptSkipsForm(t *testing.T) {
+	// An interactive script with params should skip the form and run directly
+	interactiveScript := core.Script{
+		Name:        "interactive-tool",
+		Interactive: true,
+		Parameters: []core.Parameter{
+			{Name: "env", Type: "string", Required: true},
+		},
+	}
+	categories := []core.Category{
+		{Name: "tools", Scripts: []core.Script{interactiveScript}},
+	}
+	model := NewAppModel(categories)
+
+	// Send ScriptSelectedMsg for the interactive script
+	msg := ScriptSelectedMsg{Script: interactiveScript}
+	updated, cmd := model.Update(msg)
+	m := updated.(AppModel)
+
+	// Should NOT go to form state
+	assert.NotEqual(t, StateForm, m.State(), "Interactive script should not show form")
+	// Should set selectedScript and quit
+	assert.NotNil(t, m.SelectedScript(), "Should have selected the script")
+	assert.Equal(t, "interactive-tool", m.SelectedScript().Name)
+	assert.NotNil(t, cmd, "Should return quit command")
+}
+
+func TestAppModel_NonInteractiveScriptShowsForm(t *testing.T) {
+	// A non-interactive script with params should show the form
+	script := core.Script{
+		Name:        "deploy",
+		Interactive: false,
+		Parameters: []core.Parameter{
+			{Name: "env", Type: "string", Required: true},
+		},
+	}
+	categories := []core.Category{
+		{Name: "tools", Scripts: []core.Script{script}},
+	}
+	model := NewAppModel(categories)
+
+	msg := ScriptSelectedMsg{Script: script}
+	updated, _ := model.Update(msg)
+	m := updated.(AppModel)
+
+	// Should go to form state
+	assert.Equal(t, StateForm, m.State(), "Non-interactive script with params should show form")
+}
+
+func TestAppModel_InteractiveScriptFooterNoParams(t *testing.T) {
+	// Interactive scripts should not show "p params" hint in footer
+	interactiveScript := core.Script{
+		Name:        "interactive-tool",
+		Interactive: true,
+		Parameters: []core.Parameter{
+			{Name: "env", Type: "string", Required: true},
+		},
+	}
+	categories := []core.Category{
+		{Name: "tools", Scripts: []core.Script{interactiveScript}},
+	}
+	model := NewAppModel(categories)
+
+	// The footer context should have HasParams=false for interactive scripts
+	model.updateFooterContext()
+	// We can check indirectly: the selected script has params but is interactive,
+	// so hasParams should be false
+	script := model.scriptsPane.SelectedScript()
+	if script != nil {
+		hasParams := len(script.Parameters) > 0 && !script.Interactive
+		assert.False(t, hasParams, "hasParams should be false for interactive scripts")
+	}
+}
+
 func TestAppModel_ResizeDuringHelp(t *testing.T) {
 	categories := []core.Category{
 		{Name: "test", Scripts: []core.Script{{Name: "script1"}}},

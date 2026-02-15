@@ -35,6 +35,13 @@ type ParameterConfig struct {
 	Default     string
 }
 
+// ParamTemplateData extends ParameterConfig with computed template fields.
+type ParamTemplateData struct {
+	ParameterConfig
+	EnvVar  string // "TAP_PARAM_NAME"
+	VarName string // "NAME" (uppercased, for bash local var)
+}
+
 // TemplateData is passed to script templates.
 type TemplateData struct {
 	Name         string
@@ -42,6 +49,7 @@ type TemplateData struct {
 	Category     string
 	Parameters   []ParameterConfig
 	ParamEnvVars []string
+	ParamData    []ParamTemplateData
 }
 
 var newCmd = &cobra.Command{
@@ -501,10 +509,16 @@ func generateScript(cfg NewScriptConfig, headless bool) error {
 		Parameters:  cfg.Parameters,
 	}
 
-	// Pre-compute env var names
+	// Pre-compute env var names and param template data
 	for _, p := range cfg.Parameters {
-		data.ParamEnvVars = append(data.ParamEnvVars,
-			fmt.Sprintf("TAP_PARAM_%s", strings.ToUpper(p.Name)))
+		upperName := strings.ToUpper(p.Name)
+		envVar := fmt.Sprintf("TAP_PARAM_%s", upperName)
+		data.ParamEnvVars = append(data.ParamEnvVars, envVar)
+		data.ParamData = append(data.ParamData, ParamTemplateData{
+			ParameterConfig: p,
+			EnvVar:          envVar,
+			VarName:         upperName,
+		})
 	}
 
 	// Load and execute template

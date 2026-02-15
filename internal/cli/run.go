@@ -62,14 +62,16 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	mode := determineMode(cmd)
 
-	// Check if we need interactive param input
-	if mode == ModeInteractive && needsParamInput(*script, params) {
+	// Check if we need interactive param input (skip for interactive scripts)
+	if mode == ModeInteractive && !script.Interactive && needsParamInput(*script, params) {
 		return runParamForm(*script, params)
 	}
 
-	// Validate params in headless mode
-	if err := validateParams(*script, params); err != nil {
-		return err
+	// Validate params (skip for interactive scripts that handle their own input)
+	if !script.Interactive {
+		if err := validateParams(*script, params); err != nil {
+			return err
+		}
 	}
 
 	// Apply defaults for missing optional params

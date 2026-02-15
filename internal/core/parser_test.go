@@ -712,6 +712,61 @@ func TestChoicesEqual(t *testing.T) {
 	}
 }
 
+func TestParseScript_InteractiveTrue(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "interactive.sh")
+	content := `#!/bin/bash
+# ---
+# name: interactive-script
+# description: Script with its own prompts
+# category: tools
+# interactive: true
+# parameters:
+#   - name: env
+#     type: string
+#     required: true
+# ---
+echo "Hello"
+`
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	script, err := ParseScript(tmpFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if script == nil {
+		t.Fatal("expected script, got nil")
+	}
+
+	if !script.Interactive {
+		t.Error("Interactive = false, want true")
+	}
+	if script.Name != "interactive-script" {
+		t.Errorf("Name = %q, want %q", script.Name, "interactive-script")
+	}
+	// Should still have parameters parsed
+	if len(script.Parameters) != 1 {
+		t.Fatalf("Parameters length = %d, want 1", len(script.Parameters))
+	}
+}
+
+func TestParseScript_InteractiveDefaultFalse(t *testing.T) {
+	// Scripts without interactive field should default to false
+	script, err := ParseScript("testdata/valid_bash.sh")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if script == nil {
+		t.Fatal("expected script, got nil")
+	}
+
+	if script.Interactive {
+		t.Error("Interactive = true, want false (default)")
+	}
+}
+
 // helper function for string contains
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||

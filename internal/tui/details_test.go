@@ -352,6 +352,53 @@ func TestDetailsModel_RenderParameter(t *testing.T) {
 	}
 }
 
+func TestDetailsModel_ViewInteractiveScript(t *testing.T) {
+	m := NewDetailsModel()
+	m.SetSize(60, 40)
+
+	script := &core.Script{
+		Name:        "interactive-tool",
+		Description: "A tool with its own prompts",
+		Category:    "Tools",
+		Shell:       "bash",
+		Path:        "/scripts/interactive-tool.sh",
+		Interactive: true,
+	}
+	m.SetScript(script)
+
+	view := m.View()
+
+	// Should contain "Mode" label and "Interactive" value
+	if !strings.Contains(view, "Mode") {
+		t.Error("expected view to contain 'Mode' label for interactive script")
+	}
+	if !strings.Contains(view, "Interactive") {
+		t.Error("expected view to contain 'Interactive' mode value")
+	}
+}
+
+func TestDetailsModel_ViewNonInteractiveScript(t *testing.T) {
+	m := NewDetailsModel()
+	m.SetSize(60, 40)
+
+	script := &core.Script{
+		Name:        "deploy",
+		Description: "Deploy application",
+		Category:    "Deploy",
+		Shell:       "bash",
+		Path:        "/scripts/deploy.sh",
+		Interactive: false,
+	}
+	m.SetScript(script)
+
+	view := m.View()
+
+	// Should NOT contain "Interactive" mode indicator
+	if strings.Contains(view, "Interactive") {
+		t.Error("expected view to NOT contain 'Interactive' for non-interactive script")
+	}
+}
+
 func TestDetailsModel_ViewWithPythonScript(t *testing.T) {
 	m := NewDetailsModel()
 	m.SetSize(60, 30)

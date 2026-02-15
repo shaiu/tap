@@ -330,13 +330,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ScriptSelectedMsg:
-		if len(msg.Script.Parameters) > 0 {
-			// Script has params - show form
+		if len(msg.Script.Parameters) > 0 && !msg.Script.Interactive {
+			// Script has params and is not interactive - show form
 			m.state = StateForm
 			m.formModel = NewFormModel(msg.Script, m.width, m.height)
 			return m, m.formModel.Init()
 		}
-		// No params - execute directly with brief feedback
+		// No params or interactive script - execute directly with brief feedback
 		m.selectedScript = &msg.Script
 		m.footer.SetFeedback(FeedbackRunning, "Running "+msg.Script.Name+"...")
 		return m, tea.Quit
@@ -380,23 +380,35 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 	}
 
+	// Route unhandled messages to form when active (huh uses internal messages
+	// for field focus, form progression, etc.)
+	if m.state == StateForm {
+		model, cmd := m.formModel.Update(msg)
+		if fm, ok := model.(FormModel); ok {
+			m.formModel = fm
+		}
+		return m, cmd
+	}
+
 	return m, nil
 }
 
 // handleKeyMsg processes keyboard input.
 func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Global keys that work regardless of state
-	switch {
-	case key.Matches(msg, m.keys.Quit):
-		if m.state != StateFilter {
-			return m, tea.Quit
-		}
-	case key.Matches(msg, m.keys.Help):
-		if m.state != StateFilter && m.state != StateHelp {
-			m.prevState = m.state
-			m.state = StateHelp
-			m.updateFooterContext()
-			return m, nil
+	// Global keys that work regardless of state (but not in form — form handles its own keys)
+	if m.state != StateForm {
+		switch {
+		case key.Matches(msg, m.keys.Quit):
+			if m.state != StateFilter {
+				return m, tea.Quit
+			}
+		case key.Matches(msg, m.keys.Help):
+			if m.state != StateFilter && m.state != StateHelp {
+				m.prevState = m.state
+				m.state = StateHelp
+				m.updateFooterContext()
+				return m, nil
+			}
 		}
 	}
 
@@ -578,13 +590,13 @@ func (m AppModel) handlePanelSelect() (tea.Model, tea.Cmd) {
 	case PanelScripts:
 		// Run the selected script
 		if script := m.scriptsPane.SelectedScript(); script != nil {
-			if len(script.Parameters) > 0 {
-				// Script has params - show form
+			if len(script.Parameters) > 0 && !script.Interactive {
+				// Script has params and is not interactive - show form
 				m.state = StateForm
 				m.formModel = NewFormModel(*script, m.width, m.height)
 				return m, m.formModel.Init()
 			}
-			// No params - execute directly with brief feedback
+			// No params or interactive script - execute directly with brief feedback
 			m.selectedScript = script
 			m.footer.SetFeedback(FeedbackRunning, "Running "+script.Name+"...")
 			return m, tea.Quit
@@ -594,7 +606,7 @@ func (m AppModel) handlePanelSelect() (tea.Model, tea.Cmd) {
 	case PanelDetails:
 		// In details panel, enter runs the script
 		if script := m.detailsPane.Script(); script != nil {
-			if len(script.Parameters) > 0 {
+			if len(script.Parameters) > 0 && !script.Interactive {
 				m.state = StateForm
 				m.formModel = NewFormModel(*script, m.width, m.height)
 				return m, m.formModel.Init()
@@ -920,7 +932,7 @@ func (m AppModel) renderBrowsingFooter() string {
 func (m *AppModel) updateFooterContext() {
 	hasParams := false
 	if script := m.scriptsPane.SelectedScript(); script != nil {
-		hasParams = len(script.Parameters) > 0
+		hasParams = len(script.Parameters) > 0 && !script.Interactive
 	}
 
 	m.footer.SetContext(FooterContext{

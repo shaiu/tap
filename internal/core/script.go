@@ -18,9 +18,10 @@ type Script struct {
 	Category    string `yaml:"category"`
 
 	// Metadata
-	Author  string   `yaml:"author,omitempty"`
-	Version string   `yaml:"version,omitempty"`
-	Tags    []string `yaml:"tags,omitempty"`
+	Author      string   `yaml:"author,omitempty"`
+	Version     string   `yaml:"version,omitempty"`
+	Tags        []string `yaml:"tags,omitempty"`
+	Interactive bool     `yaml:"interactive,omitempty"`
 
 	// Parameters
 	Parameters []Parameter `yaml:"parameters,omitempty"`

@@ -28,11 +28,43 @@ parameters:
 import os
 import sys
 
-{{- if .ParamEnvVars}}
+{{- if .ParamData}}
 
-# Access parameters via environment variables:
-{{- range .ParamEnvVars}}
-# {{.}} = os.environ.get("{{.}}")
+# Parameters (provided via TAP_PARAM_* env vars when run through tap)
+{{- range .ParamData}}
+{{- if eq .Type "int"}}
+{{- if .Default}}
+{{.Name}} = int(os.environ.get("{{.EnvVar}}", "{{.Default}}"))
+{{- else}}
+{{.Name}} = int(os.environ["{{.EnvVar}}"]) if "{{.EnvVar}}" in os.environ else None
+{{- end}}
+{{- else if eq .Type "float"}}
+{{- if .Default}}
+{{.Name}} = float(os.environ.get("{{.EnvVar}}", "{{.Default}}"))
+{{- else}}
+{{.Name}} = float(os.environ["{{.EnvVar}}"]) if "{{.EnvVar}}" in os.environ else None
+{{- end}}
+{{- else if eq .Type "bool"}}
+{{- if .Default}}
+{{.Name}} = os.environ.get("{{.EnvVar}}", "{{.Default}}").lower() in ("true", "1", "yes")
+{{- else}}
+{{.Name}} = os.environ.get("{{.EnvVar}}", "false").lower() in ("true", "1", "yes")
+{{- end}}
+{{- else}}
+{{- if .Default}}
+{{.Name}} = os.environ.get("{{.EnvVar}}", "{{.Default}}")
+{{- else}}
+{{.Name}} = os.environ.get("{{.EnvVar}}", "")
+{{- end}}
+{{- end}}
+{{- end}}
+{{- range .ParamData}}
+{{- if and .Required (not .Default)}}
+
+if not {{.Name}}:
+    print("Error: {{.Name}} is required", file=sys.stderr)
+    sys.exit(1)
+{{- end}}
 {{- end}}
 {{- end}}
 

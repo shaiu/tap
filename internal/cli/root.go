@@ -153,10 +153,11 @@ func runTUI() error {
 	executor := core.NewExecutor()
 
 	result, err := executor.Execute(context.Background(), core.ExecutionRequest{
-		Script: *selectedScript,
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Script:     *selectedScript,
+		Parameters: appModel.SelectedParams(),
+		Stdin:      os.Stdin,
+		Stdout:     os.Stdout,
+		Stderr:     os.Stderr,
 	})
 	if err != nil {
 		return err

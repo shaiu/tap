@@ -25,11 +25,24 @@
 
 set -euo pipefail
 
-{{- if .ParamEnvVars}}
+{{- if .ParamData}}
 
-# Access parameters via environment variables:
-{{- range .ParamEnvVars}}
-#   ${{.}}
+# Parameters (provided via TAP_PARAM_* env vars when run through tap)
+{{- range .ParamData}}
+{{- if .Default}}
+{{.VarName}}="${{printf "{%s:-%s}" .EnvVar .Default}}"
+{{- else}}
+{{.VarName}}="${{printf "{%s:-}" .EnvVar}}"
+{{- end}}
+{{- end}}
+{{- range .ParamData}}
+{{- if and .Required (not .Default)}}
+
+if [[ -z "${{.VarName}}" ]]; then
+    echo "Error: {{.Name}} is required" >&2
+    exit 1
+fi
+{{- end}}
 {{- end}}
 {{- end}}
 

@@ -125,6 +125,14 @@ func (m DetailsModel) renderScriptDetails() string {
 	s.WriteString(valueStyle.Render(script.Shell))
 	s.WriteString("\n")
 
+	// Mode (interactive)
+	if script.Interactive {
+		modeStyle := lipgloss.NewStyle().Foreground(Theme.Secondary)
+		s.WriteString(labelStyle.Render("Mode"))
+		s.WriteString(modeStyle.Render("Interactive"))
+		s.WriteString("\n")
+	}
+
 	// Path (shortened)
 	path := script.Path
 	homeDir := "~"
