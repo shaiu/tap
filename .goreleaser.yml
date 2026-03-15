@@ -1,0 +1,53 @@
+version: 2
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - main: ./cmd/tap
+    binary: tap
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/shaiungar/tap/internal/cli.Version={{.Version}}
+      - -X github.com/shaiungar/tap/internal/cli.Commit={{.Commit}}
+      - -X github.com/shaiungar/tap/internal/cli.BuildDate={{.Date}}
+
+universal_binaries:
+  - replace: true
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+
+brews:
+  - repository:
+      owner: shaiu
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/shaiungar/tap
+    description: Terminal-based script runner with interactive TUI
+    license: MIT
+    test: |
+      system "#{bin}/tap", "version"
