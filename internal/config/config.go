@@ -170,6 +170,16 @@ func (m *DefaultManager) Path() string {
 	return m.configPath
 }
 
+// RegistryPath returns the registry file path.
+func (m *DefaultManager) RegistryPath() string {
+	return m.registryPath
+}
+
+// CachePath returns the cache file path.
+func (m *DefaultManager) CachePath() string {
+	return m.cachePath
+}
+
 // Load reads configuration from disk or returns defaults.
 func (m *DefaultManager) Load() (*Config, error) {
 	cfg := DefaultConfig()

@@ -2,9 +2,11 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
@@ -106,6 +108,13 @@ func runTUI() error {
 		return fmt.Errorf("loading registry: %w", err)
 	}
 
+	// First-run experience: prompt user to add a scan directory
+	if len(cfg.ScanDirs) == 0 && len(registry.Scripts) == 0 {
+		if err := firstRunSetup(mgr, cfg); err != nil {
+			return err
+		}
+	}
+
 	var registeredPaths []string
 	for _, s := range registry.Scripts {
 		registeredPaths = append(registeredPaths, s.Path)
@@ -167,6 +176,43 @@ func runTUI() error {
 	if result.ExitCode != 0 {
 		os.Exit(result.ExitCode)
 	}
+
+	return nil
+}
+
+// firstRunSetup prompts the user to add their first scan directory.
+func firstRunSetup(mgr *config.DefaultManager, cfg *config.Config) error {
+	fmt.Println("Welcome to tap!")
+	fmt.Println()
+	fmt.Println("No script directories configured yet.")
+	fmt.Println()
+	fmt.Print("Enter a directory to scan for scripts (or press Enter to skip): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return nil // Treat read errors as skip
+	}
+
+	dir := strings.TrimSpace(input)
+	if dir == "" {
+		fmt.Println()
+		fmt.Println("You can add directories later with:")
+		fmt.Println("  tap config add-dir <path>")
+		fmt.Println()
+		return nil
+	}
+
+	if err := mgr.AddScanDir(dir); err != nil {
+		return fmt.Errorf("adding directory: %w", err)
+	}
+
+	// Update the in-memory config so the caller uses the new dir
+	cfg.ScanDirs = append(cfg.ScanDirs, dir)
+
+	fmt.Printf("\nAdded %s to scan directories.\n", dir)
+	fmt.Println("Run `tap` to browse your scripts!")
+	fmt.Println()
 
 	return nil
 }
