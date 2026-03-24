@@ -34,3 +34,6 @@ Thumbs.db
 # Local environment
 .env
 .env.local
+
+# Per-release scratch file (used by slack-release.sh)
+RELEASE_NOTES.md
