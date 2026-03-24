@@ -140,6 +140,12 @@ func (m FooterModel) browsingHints() []KeyHint {
 
 	hints = append(hints, KeyHint{Key: "/", Action: "filter"})
 
+	// Show view/edit hints when a script is selectable
+	if m.context.ActivePanel == PanelScripts || m.context.ActivePanel == PanelDetails {
+		hints = append(hints, KeyHint{Key: "v", Action: "view"})
+		hints = append(hints, KeyHint{Key: "e", Action: "edit"})
+	}
+
 	// Show params hint if selected script has parameters
 	if m.context.HasParams && m.context.ActivePanel == PanelScripts {
 		hints = append(hints, KeyHint{Key: "p", Action: "params"})

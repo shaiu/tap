@@ -15,10 +15,12 @@ type KeyMap struct {
 	PrevPanel key.Binding
 
 	// Actions
-	Filter  key.Binding
-	Refresh key.Binding
-	Help    key.Binding
-	Quit    key.Binding
+	Filter   key.Binding
+	Refresh  key.Binding
+	Help     key.Binding
+	Quit     key.Binding
+	ViewCode key.Binding
+	EditCode key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings.
@@ -63,6 +65,14 @@ func DefaultKeyMap() KeyMap {
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
+		),
+		ViewCode: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "view code"),
+		),
+		EditCode: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "edit"),
 		),
 	}
 }

@@ -66,6 +66,13 @@ func (m HelpModel) Sections() []HelpSection {
 			},
 		},
 		{
+			Title: "Script",
+			Bindings: []HelpBinding{
+				{Key: "v", Desc: "View script source code"},
+				{Key: "e", Desc: "Edit script in $EDITOR"},
+			},
+		},
+		{
 			Title: "Actions",
 			Bindings: []HelpBinding{
 				{Key: "r", Desc: "Refresh scripts"},

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -21,7 +23,8 @@ const (
 	StateFilter
 	StateHelp
 	StateForm
-	StateBrowsing // 3-panel browsing mode
+	StateBrowsing  // 3-panel browsing mode
+	StateViewCode  // Code viewer
 )
 
 // Panel represents which panel is currently active in 3-panel mode.
@@ -59,6 +62,8 @@ func (s ViewState) String() string {
 		return "form"
 	case StateBrowsing:
 		return "browsing"
+	case StateViewCode:
+		return "view-code"
 	default:
 		return "unknown"
 	}
@@ -84,6 +89,11 @@ type ErrorMsg struct {
 	Err error
 }
 
+// EditorFinishedMsg is sent when the external editor process exits.
+type EditorFinishedMsg struct {
+	Err error
+}
+
 // AppModel is the root model for the tap TUI.
 type AppModel struct {
 	// State
@@ -106,6 +116,9 @@ type AppModel struct {
 
 	// Form (for parameter input)
 	formModel FormModel
+
+	// Code viewer
+	viewerModel ViewerModel
 
 	// Filter
 	filterInput   textinput.Model
@@ -353,6 +366,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateBrowsing
 		return m, nil
 
+	case EditorFinishedMsg:
+		// Return to browsing after editor exits
+		m.state = StateBrowsing
+		m.updateFooterContext()
+		if msg.Err != nil {
+			m.footer.SetFeedback(FeedbackError, "Editor: "+msg.Err.Error())
+			return m, ClearFeedbackAfter(FeedbackDuration)
+		}
+		return m, nil
+
 	case ErrorMsg:
 		m.err = msg.Err
 		// Show error in footer
@@ -426,6 +449,8 @@ func (m AppModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateHelp(msg)
 	case StateForm:
 		return m.updateForm(msg)
+	case StateViewCode:
+		return m.updateViewCode(msg)
 	}
 
 	return m, nil
@@ -459,6 +484,10 @@ func (m AppModel) updateBrowsing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Select):
 		// Enter key - handle based on active panel
 		return m.handlePanelSelect()
+	case key.Matches(msg, m.keys.ViewCode):
+		return m.openViewer()
+	case key.Matches(msg, m.keys.EditCode):
+		return m.openEditor()
 	}
 
 	// Route to active panel
@@ -791,6 +820,8 @@ func (m AppModel) View() string {
 		return m.formModel.View()
 	case StateBrowsing:
 		return m.renderBrowsingView()
+	case StateViewCode:
+		return m.renderViewCodeView()
 	default:
 		// Legacy: CategoryList, ScriptList views are rendered by MenuModel
 		return m.menu.View()
@@ -1064,6 +1095,76 @@ func (m AppModel) renderFilterOverlayView() string {
 // renderHelp renders the help overlay.
 func (m AppModel) renderHelp() string {
 	return RenderHelp(m.width, m.height)
+}
+
+// openViewer opens the code viewer for the currently selected script.
+func (m AppModel) openViewer() (tea.Model, tea.Cmd) {
+	script := m.scriptsPane.SelectedScript()
+	if script == nil {
+		return m, nil
+	}
+	m.prevState = m.state
+	m.state = StateViewCode
+	m.viewerModel = NewViewerModel(*script, m.width, m.height)
+	m.updateFooterContext()
+	return m, nil
+}
+
+// openEditor launches $EDITOR on the currently selected script.
+func (m AppModel) openEditor() (tea.Model, tea.Cmd) {
+	script := m.scriptsPane.SelectedScript()
+	if script == nil {
+		return m, nil
+	}
+
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+
+	c := exec.Command(editor, script.Path)
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+
+	return m, tea.ExecProcess(c, func(err error) tea.Msg {
+		return EditorFinishedMsg{Err: err}
+	})
+}
+
+// updateViewCode handles key input in the code viewer state.
+func (m AppModel) updateViewCode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Back),
+		key.Matches(msg, key.NewBinding(key.WithKeys("q"))):
+		m.state = m.prevState
+		m.updateFooterContext()
+		return m, nil
+	case key.Matches(msg, m.keys.EditCode):
+		return m.openEditor()
+	}
+
+	var cmd tea.Cmd
+	m.viewerModel, cmd = m.viewerModel.Update(msg)
+	return m, cmd
+}
+
+// renderViewCodeView renders the code viewer with footer.
+func (m AppModel) renderViewCodeView() string {
+	var s strings.Builder
+	s.WriteString(m.viewerModel.View())
+	s.WriteString("\n")
+	s.WriteString(RenderSimple([]KeyHint{
+		{Key: "↑↓", Action: "scroll"},
+		{Key: "ctrl+u/d", Action: "page"},
+		{Key: "g/G", Action: "top/bottom"},
+		{Key: "e", Action: "edit"},
+		{Key: "esc", Action: "back"},
+	}, m.width))
+	return s.String()
 }
 
 // State returns the current view state.

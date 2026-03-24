@@ -33,7 +33,7 @@ func TestHelpModel_Sections(t *testing.T) {
 	sections := m.Sections()
 
 	// Verify we have the expected sections
-	expectedSections := []string{"Navigation", "Panels", "Filtering", "Actions"}
+	expectedSections := []string{"Navigation", "Panels", "Filtering", "Script", "Actions"}
 
 	if len(sections) != len(expectedSections) {
 		t.Errorf("expected %d sections, got %d", len(expectedSections), len(sections))
