@@ -250,6 +250,14 @@ func (m FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form = m.form.WithWidth(msg.Width - 4)
 		return m, nil
 
+	case FormSubmittedMsg:
+		// When running standalone (not embedded in AppModel), quit after submission
+		return m, tea.Quit
+
+	case FormCancelledMsg:
+		// When running standalone, quit after cancellation
+		return m, tea.Quit
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
