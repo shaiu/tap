@@ -76,13 +76,15 @@ MSG=":rocket: *tap v${DISPLAY_VERSION}* is out!
 
 *What's new:*
 $(echo -e "$ITEMS")
+---
+
 *New user?*
 \`\`\`brew install shaiu/tap/tap\`\`\`
 
 *Already installed?*
 \`\`\`brew upgrade tap\`\`\`
 
-<https://github.com/shaiungar/tap/releases/tag/${VERSION}|:page_facing_up: Release notes>"
+:page_facing_up: https://github.com/shaiungar/tap/releases/tag/${VERSION}"
 
 echo "─── Slack message ───"
 echo ""
