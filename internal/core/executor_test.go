@@ -140,7 +140,7 @@ func TestExecute_WorkingDirectory(t *testing.T) {
 
 	executor := NewExecutor()
 
-	t.Run("default to script directory", func(t *testing.T) {
+	t.Run("default to caller working directory", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 
 		result, err := executor.Execute(context.Background(), ExecutionRequest{
@@ -161,10 +161,13 @@ func TestExecute_WorkingDirectory(t *testing.T) {
 			t.Errorf("expected exit code 0, got %d", result.ExitCode)
 		}
 
-		expectedDir := filepath.Dir(scriptPath)
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("failed to get cwd: %v", err)
+		}
 		output := strings.TrimSpace(stdout.String())
-		if output != expectedDir {
-			t.Errorf("expected working directory %s, got %s", expectedDir, output)
+		if output != cwd {
+			t.Errorf("expected working directory %s, got %s", cwd, output)
 		}
 	})
 

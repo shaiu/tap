@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -17,7 +16,7 @@ import (
 type ExecutionRequest struct {
 	Script     Script
 	Parameters map[string]string
-	WorkDir    string            // Working directory (default: script's dir)
+	WorkDir    string            // Working directory (default: caller's cwd)
 	Env        map[string]string // Additional env vars
 	Stdin      io.Reader         // Input (default: os.Stdin)
 	Stdout     io.Writer         // Output (default: os.Stdout)
@@ -69,11 +68,9 @@ func (e *executor) Execute(ctx context.Context, req ExecutionRequest) (*Executio
 	cmdArgs := append(args, req.Script.Path)
 	cmd := exec.CommandContext(ctx, interpreter, cmdArgs...)
 
-	// Set working directory
+	// Set working directory (default: caller's working directory)
 	if req.WorkDir != "" {
 		cmd.Dir = req.WorkDir
-	} else {
-		cmd.Dir = filepath.Dir(req.Script.Path)
 	}
 
 	// Set environment
