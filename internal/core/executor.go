@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/mattn/go-isatty"
 )
 
 // ExecutionRequest contains all inputs needed to execute a script.
@@ -93,8 +95,19 @@ func (e *executor) Execute(ctx context.Context, req ExecutionRequest) (*Executio
 		cmd.Stderr = os.Stderr
 	}
 
-	// Set up process group for signal handling
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Set up process group for signal handling.
+	// For interactive scripts running in a TTY, use Foreground mode so the
+	// child becomes the foreground process group and can read from the terminal.
+	// Without this, interactive tools (gum, kubectl exec -it, etc.) receive
+	// SIGTTIN and hang because they're in a background process group.
+	if req.Script.Interactive && isatty.IsTerminal(os.Stdin.Fd()) {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Foreground: true,
+			Ctty:       int(os.Stdin.Fd()),
+		}
+	} else {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
 
 	// Start the process
 	if err := cmd.Start(); err != nil {
