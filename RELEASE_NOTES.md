@@ -1,1 +1,1 @@
-• *Fix working directory* — scripts now run from the directory where you invoked `tap`, not from the script's own directory
+• *Fix interactive script hang* — scripts with `interactive: true` now get the foreground process group, so tools like `gum` and interactive pod shells no longer freeze
